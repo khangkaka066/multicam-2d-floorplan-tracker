@@ -1,0 +1,363 @@
+{
+  "source": "SYNTHETIC TEST FIXTURE; not a reconstruction of the EPFL building",
+  "rooms": [
+    {
+      "id": "SYNTHETIC_A",
+      "polygon": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          4.0,
+          0.0
+        ],
+        [
+          4.0,
+          4.0
+        ],
+        [
+          0.0,
+          4.0
+        ]
+      ],
+      "corners": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          4.0,
+          0.0
+        ],
+        [
+          4.0,
+          4.0
+        ],
+        [
+          0.0,
+          4.0
+        ]
+      ],
+      "walls": [
+        {
+          "id": "SYNTHETIC_A_wall_0",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            4.0,
+            0.0
+          ],
+          "length_m": 4.0,
+          "outward_normal": [
+            0.0,
+            -1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_A_wall_1",
+          "start": [
+            4.0,
+            0.0
+          ],
+          "end": [
+            4.0,
+            4.0
+          ],
+          "length_m": 4.0,
+          "outward_normal": [
+            1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [
+            "SYNTHETIC_A_door"
+          ]
+        },
+        {
+          "id": "SYNTHETIC_A_wall_2",
+          "start": [
+            4.0,
+            4.0
+          ],
+          "end": [
+            0.0,
+            4.0
+          ],
+          "length_m": 4.0,
+          "outward_normal": [
+            0.0,
+            1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_A_wall_3",
+          "start": [
+            0.0,
+            4.0
+          ],
+          "end": [
+            0.0,
+            0.0
+          ],
+          "length_m": 4.0,
+          "outward_normal": [
+            -1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        }
+      ],
+      "doors": [
+        {
+          "id": "SYNTHETIC_A_door",
+          "wall_id": "SYNTHETIC_A_wall_1",
+          "offset_m": 1.5,
+          "width_m": 1.0,
+          "start": [
+            4.0,
+            1.5
+          ],
+          "end": [
+            4.0,
+            2.5
+          ]
+        }
+      ],
+      "T_local_to_global": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "area_m2": 16
+    },
+    {
+      "id": "SYNTHETIC_B",
+      "polygon": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          3.0,
+          0.0
+        ],
+        [
+          3.0,
+          2.0
+        ],
+        [
+          2.0,
+          2.0
+        ],
+        [
+          2.0,
+          4.0
+        ],
+        [
+          0.0,
+          4.0
+        ]
+      ],
+      "corners": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          3.0,
+          0.0
+        ],
+        [
+          3.0,
+          2.0
+        ],
+        [
+          2.0,
+          2.0
+        ],
+        [
+          2.0,
+          4.0
+        ],
+        [
+          0.0,
+          4.0
+        ]
+      ],
+      "walls": [
+        {
+          "id": "SYNTHETIC_B_wall_0",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            3.0,
+            0.0
+          ],
+          "length_m": 3.0,
+          "outward_normal": [
+            0.0,
+            -1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_B_wall_1",
+          "start": [
+            3.0,
+            0.0
+          ],
+          "end": [
+            3.0,
+            2.0
+          ],
+          "length_m": 2.0,
+          "outward_normal": [
+            1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_B_wall_2",
+          "start": [
+            3.0,
+            2.0
+          ],
+          "end": [
+            2.0,
+            2.0
+          ],
+          "length_m": 1.0,
+          "outward_normal": [
+            0.0,
+            1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_B_wall_3",
+          "start": [
+            2.0,
+            2.0
+          ],
+          "end": [
+            2.0,
+            4.0
+          ],
+          "length_m": 2.0,
+          "outward_normal": [
+            1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_B_wall_4",
+          "start": [
+            2.0,
+            4.0
+          ],
+          "end": [
+            0.0,
+            4.0
+          ],
+          "length_m": 2.0,
+          "outward_normal": [
+            0.0,
+            1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": []
+        },
+        {
+          "id": "SYNTHETIC_B_wall_5",
+          "start": [
+            0.0,
+            4.0
+          ],
+          "end": [
+            0.0,
+            0.0
+          ],
+          "length_m": 4.0,
+          "outward_normal": [
+            -1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [
+            "SYNTHETIC_B_door"
+          ]
+        }
+      ],
+      "doors": [
+        {
+          "id": "SYNTHETIC_B_door",
+          "wall_id": "SYNTHETIC_B_wall_5",
+          "offset_m": 1.5,
+          "width_m": 1.0,
+          "start": [
+            0.0,
+            2.5
+          ],
+          "end": [
+            0.0,
+            1.5
+          ]
+        }
+      ],
+      "T_local_to_global": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "area_m2": 10
+    }
+  ],
+  "connections": [
+    {
+      "room_a": "SYNTHETIC_A",
+      "door_a": "SYNTHETIC_A_door",
+      "room_b": "SYNTHETIC_B",
+      "door_b": "SYNTHETIC_B_door"
+    }
+  ]
+}

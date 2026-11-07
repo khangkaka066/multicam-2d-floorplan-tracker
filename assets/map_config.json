@@ -1,0 +1,526 @@
+{
+  "schema_version": 3,
+  "units": "meters",
+  "coordinate_frame": "unregistered display atlas; metric only within each scene",
+  "physical_building_registration": false,
+  "rooms": [
+    {
+      "id": "laboratory",
+      "polygon": [
+        [
+          -3.1877425763491773,
+          -3.2352553808730757
+        ],
+        [
+          3.1877425763491773,
+          -3.2352553808730757
+        ],
+        [
+          3.1877425763491773,
+          3.2352553808730757
+        ],
+        [
+          -3.1877425763491773,
+          3.2352553808730757
+        ]
+      ],
+      "corners": [
+        [
+          -3.1877425763491773,
+          -3.2352553808730757
+        ],
+        [
+          3.1877425763491773,
+          -3.2352553808730757
+        ],
+        [
+          3.1877425763491773,
+          3.2352553808730757
+        ],
+        [
+          -3.1877425763491773,
+          3.2352553808730757
+        ]
+      ],
+      "walls": [
+        {
+          "id": "laboratory_wall_0",
+          "start": [
+            -3.1877425763491773,
+            -3.2352553808730757
+          ],
+          "end": [
+            3.1877425763491773,
+            -3.2352553808730757
+          ],
+          "length_m": 6.375485152698355,
+          "outward_normal": [
+            0.0,
+            -1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "observed_wall"
+        },
+        {
+          "id": "laboratory_wall_1",
+          "start": [
+            3.1877425763491773,
+            -3.2352553808730757
+          ],
+          "end": [
+            3.1877425763491773,
+            3.2352553808730757
+          ],
+          "length_m": 6.4705107617461515,
+          "outward_normal": [
+            1.0,
+            0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [
+            "laboratory_door_0"
+          ],
+          "kind": "observed_wall"
+        },
+        {
+          "id": "laboratory_wall_2",
+          "start": [
+            3.1877425763491773,
+            3.2352553808730757
+          ],
+          "end": [
+            -3.1877425763491773,
+            3.2352553808730757
+          ],
+          "length_m": 6.375485152698355,
+          "outward_normal": [
+            0.0,
+            1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "observed_wall"
+        },
+        {
+          "id": "laboratory_wall_3",
+          "start": [
+            -3.1877425763491773,
+            3.2352553808730757
+          ],
+          "end": [
+            -3.1877425763491773,
+            -3.2352553808730757
+          ],
+          "length_m": 6.4705107617461515,
+          "outward_normal": [
+            -1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "observed_wall"
+        }
+      ],
+      "doors": [
+        {
+          "id": "laboratory_door_0",
+          "wall_id": "laboratory_wall_1",
+          "offset_m": 4.876182199160863,
+          "width_m": 0.9232845874241127,
+          "start": [
+            3.1877425763491773,
+            1.6409268182877872
+          ],
+          "end": [
+            3.1877425763491773,
+            2.5642114057119
+          ],
+          "center": [
+            3.1877425763491773,
+            2.0826452130099966
+          ],
+          "status": "trajectory-supported entry/exit candidate; width is observed crossing-body envelope, not a jamb measurement",
+          "confirmed": false,
+          "connected_room": null,
+          "supporting_tracklets": 2,
+          "events": [
+            {
+              "track_id": 0,
+              "kind": "entry",
+              "index": 9,
+              "time_seconds": 4.5,
+              "xy": [
+                3.592072789542343,
+                1.986889858320759
+              ],
+              "wall_id": "laboratory_wall_1",
+              "wall_offset_m": 5.222145239193835,
+              "wall_distance_m": 0.40433021319316564,
+              "source_cameras": [
+                "cam1"
+              ],
+              "body_width_m": 0.6919260800659435
+            },
+            {
+              "track_id": 3,
+              "kind": "entry",
+              "index": 27,
+              "time_seconds": 13.5,
+              "xy": [
+                3.41567786196396,
+                2.1784005676992355
+              ],
+              "wall_id": "laboratory_wall_1",
+              "wall_offset_m": 5.413655948572311,
+              "wall_distance_m": 0.2279352856147825,
+              "source_cameras": [
+                "cam1"
+              ],
+              "body_width_m": 0.771621676025329
+            }
+          ]
+        }
+      ],
+      "T_local_to_global": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "boundary_status": "RANSAC lines fitted to image floor-wall seams; Manhattan rectangular closure",
+      "area_m2": 41.25264529188751,
+      "wall_fit_evidence": [
+        {
+          "axis": 0,
+          "position": -3.084122719701055,
+          "support": 349,
+          "cameras": [
+            "cam0",
+            "cam3"
+          ],
+          "span": 5.928650719593392,
+          "residual_median": 0.03893097147265978,
+          "side": -1
+        },
+        {
+          "axis": 0,
+          "position": 3.2913624329973,
+          "support": 472,
+          "cameras": [
+            "cam1",
+            "cam2"
+          ],
+          "span": 5.756987776917841,
+          "residual_median": 0.04557683922207656,
+          "side": 1
+        },
+        {
+          "axis": 1,
+          "position": -3.0005927497683964,
+          "support": 230,
+          "cameras": [
+            "cam2",
+            "cam3"
+          ],
+          "span": 2.4393710938484654,
+          "residual_median": 0.04831562748170959,
+          "side": -1
+        },
+        {
+          "axis": 1,
+          "position": 3.4699180119777555,
+          "support": 412,
+          "cameras": [
+            "cam0",
+            "cam1"
+          ],
+          "span": 4.992133524748965,
+          "residual_median": 0.04108582627440982,
+          "side": 1
+        }
+      ],
+      "boundary_observation_count": 3549,
+      "dominant_yaw_deg": -1.25
+    },
+    {
+      "id": "passageway",
+      "polygon": [
+        [
+          6.1877425763491765,
+          -9.680292459269292
+        ],
+        [
+          14.65401930626459,
+          -9.680292459269292
+        ],
+        [
+          14.65401930626459,
+          9.680292459269292
+        ],
+        [
+          6.1877425763491765,
+          9.680292459269292
+        ]
+      ],
+      "corners": [
+        [
+          6.1877425763491765,
+          -9.680292459269292
+        ],
+        [
+          14.65401930626459,
+          -9.680292459269292
+        ],
+        [
+          14.65401930626459,
+          9.680292459269292
+        ],
+        [
+          6.1877425763491765,
+          9.680292459269292
+        ]
+      ],
+      "walls": [
+        {
+          "id": "passageway_wall_0",
+          "start": [
+            6.1877425763491765,
+            -9.680292459269292
+          ],
+          "end": [
+            14.65401930626459,
+            -9.680292459269292
+          ],
+          "length_m": 8.466276729915414,
+          "outward_normal": [
+            0.0,
+            -1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "observed_wall"
+        },
+        {
+          "id": "passageway_wall_1",
+          "start": [
+            14.65401930626459,
+            -9.680292459269292
+          ],
+          "end": [
+            14.65401930626459,
+            9.680292459269292
+          ],
+          "length_m": 19.360584918538585,
+          "outward_normal": [
+            1.0,
+            0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "observed_wall"
+        },
+        {
+          "id": "passageway_wall_2",
+          "start": [
+            14.65401930626459,
+            9.680292459269292
+          ],
+          "end": [
+            6.1877425763491765,
+            9.680292459269292
+          ],
+          "length_m": 8.466276729915414,
+          "outward_normal": [
+            0.0,
+            1.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "open_scene_limit"
+        },
+        {
+          "id": "passageway_wall_3",
+          "start": [
+            6.1877425763491765,
+            9.680292459269292
+          ],
+          "end": [
+            6.1877425763491765,
+            -9.680292459269292
+          ],
+          "length_m": 19.360584918538585,
+          "outward_normal": [
+            -1.0,
+            -0.0
+          ],
+          "thickness_m": 0.16,
+          "openings": [],
+          "kind": "observed_wall"
+        }
+      ],
+      "doors": [],
+      "T_local_to_global": [
+        [
+          1.0,
+          0.0,
+          10.420880941306883
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "boundary_status": "RANSAC lines fitted to image floor-wall seams; Manhattan rectangular closure",
+      "area_m2": 163.91206957337454,
+      "wall_fit_evidence": [
+        {
+          "axis": 0,
+          "position": -4.186223366072346,
+          "support": 55,
+          "cameras": [
+            "cam0"
+          ],
+          "span": 3.5393887662946235,
+          "residual_median": 0.0583943015644115,
+          "side": -1
+        },
+        {
+          "axis": 0,
+          "position": 4.280053363843069,
+          "support": 281,
+          "cameras": [
+            "cam0",
+            "cam1",
+            "cam2"
+          ],
+          "span": 10.308852966208589,
+          "residual_median": 0.009859607339119947,
+          "side": 1
+        },
+        {
+          "axis": 1,
+          "position": -8.446515260085254,
+          "support": 71,
+          "cameras": [
+            "cam2",
+            "cam3"
+          ],
+          "span": 2.158602454409944,
+          "residual_median": 0.06544521890591604,
+          "side": -1
+        },
+        {
+          "axis": 1,
+          "side": 1,
+          "position": 10.914069658453332,
+          "kind": "open_scene_limit",
+          "support": 0,
+          "status": "extent of visible seam observations; NOT an observed wall"
+        }
+      ],
+      "boundary_observation_count": 1776,
+      "dominant_yaw_deg": -26.875
+    }
+  ],
+  "minimum_display_clearance_m": 0.14,
+  "source": "INDEPENDENT REAL SCENES",
+  "scene_sources": {
+    "laboratory": "../data/manifest.json",
+    "passageway": "../data/passageway/manifest.json"
+  },
+  "alignment": {
+    "status": "unknown; separate recordings with no verified shared doorway",
+    "connections": [],
+    "shared_walls": [],
+    "display_gap_m": 3,
+    "gap_is_physical_distance": false
+  },
+  "scene_transforms": {
+    "laboratory": [
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "passageway": [
+      [
+        1.0,
+        0.0,
+        10.420880941306883
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "projection_transforms": "transforms_refined.json",
+  "recordings_synchronized_across_scenes": false,
+  "render_fused_people": true,
+  "show_raw_projections": false,
+  "verification_record_index": 78,
+  "id_scope": "globally unique display IDs; independent recordings, no cross-scene identity claim",
+  "limitations": [
+    "Scene placement is a page layout, not a building layout",
+    "Wall-mount priors refine underconstrained intrinsics",
+    "Horizontal FOV follows fitted intrinsics, not forced 60-90 degrees",
+    "Passageway has an open unobserved end"
+  ],
+  "canvas_size": [
+    1224,
+    1355
+  ],
+  "T_map_to_canvas": [
+    [
+      56.81646523740629,
+      0.0,
+      286.116265274943
+    ],
+    [
+      0.0,
+      -56.81646523740629,
+      695.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "pixels_per_meter": 56.81646523740629
+}

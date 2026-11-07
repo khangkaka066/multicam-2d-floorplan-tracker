@@ -1,0 +1,51 @@
+{
+  "passed": true,
+  "real_scenes": 2,
+  "real_cameras": 8,
+  "decoded_jpeg_frames": 1600,
+  "decoded_verification_video_frames": 100,
+  "displayed_points_strictly_inside": 2116,
+  "rejected_unmodified_projections": 2,
+  "max_projection_error_m": 1.0658141036401503e-14,
+  "inspected_headcounts": {
+    "laboratory": 2,
+    "passageway": 4
+  },
+  "inspected_global_ids": [
+    1,
+    2,
+    5,
+    6,
+    3,
+    4
+  ],
+  "maximum_accepted_fusion_diameter_m": 0.3490091396726012,
+  "predicted_person_observations": 35,
+  "max_group_diameter_at_requested_frame_m": 0.34429639587482147,
+  "all_raw_validation_pairs_meet_035m": false,
+  "max_C_identity_error_m": 3.978256139440565e-15,
+  "orthogonal_corner_max_abs_cosine": 0.0,
+  "camera_distance_to_perimeter_m": {
+    "LAB/cam0": 0.12030532000399675,
+    "LAB/cam1": 0.12026914812513345,
+    "LAB/cam2": 0.12069453570669754,
+    "LAB/cam3": 0.12994180959269475,
+    "PASS/cam0": 0.12023294354324143,
+    "PASS/cam1": 0.12407697854943757,
+    "PASS/cam2": 0.12001209342734853,
+    "PASS/cam3": 0.08674002092411116
+  },
+  "estimated_horizontal_fov_degrees": {
+    "LAB/cam0": 52.070094161414815,
+    "LAB/cam1": 54.53935388383291,
+    "LAB/cam2": 54.96777542753498,
+    "LAB/cam3": 50.82689627279697,
+    "PASS/cam0": 57.060892792923305,
+    "PASS/cam1": 33.97339518879214,
+    "PASS/cam2": 64.35688226526815,
+    "PASS/cam3": 46.681059450756166
+  },
+  "maximum_fov_ray_length_m": 20.786123835495644,
+  "shared_doorway_registration": "UNKNOWN; not fabricated",
+  "scope": "Internal geometry and artifact consistency; dimensions, priors and trajectory doors are not survey validation."
+}

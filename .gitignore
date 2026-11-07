@@ -1,0 +1,49 @@
+# Research data and downloaded models
+/data/
+/models/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.ckpt
+*.bin
+*.avi
+*.mp4
+*.mov
+*.mkv
+*.npy
+*.npz
+
+# Regenerable outputs; showcase files are explicitly versioned
+/outputs/*
+!/outputs/.gitkeep
+/assets/*
+!/assets/*.png
+!/assets/*.json
+
+# Python environments, build products and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Local settings, credentials and temporary files
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.tmp
+*.part
