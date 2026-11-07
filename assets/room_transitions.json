@@ -1,0 +1,219 @@
+{
+  "inferred": [
+    {
+      "id": 1,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 564,
+      "time_seconds": 22.56,
+      "previous_time_seconds": 19.68,
+      "doorway_path_distance_m": 2.028869066977672,
+      "appearance_distance": 0.35398015412044703
+    },
+    {
+      "id": 3,
+      "from_room": "passageway_pf",
+      "to_room": "showroom",
+      "source_frame": 756,
+      "time_seconds": 30.24,
+      "previous_time_seconds": 15.84,
+      "doorway_path_distance_m": 12.393805271463172,
+      "appearance_distance": 0.6037117996489656
+    },
+    {
+      "id": 3,
+      "from_room": "showroom",
+      "to_room": "entrance_hall",
+      "source_frame": 1032,
+      "time_seconds": 41.28,
+      "previous_time_seconds": 30.24,
+      "doorway_path_distance_m": 19.148365353872272,
+      "appearance_distance": 0.5833371466981352
+    },
+    {
+      "id": 2,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 1404,
+      "time_seconds": 56.16,
+      "previous_time_seconds": 55.68,
+      "doorway_path_distance_m": 0.7717792659614129,
+      "appearance_distance": 0.14656998046517478
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1512,
+      "time_seconds": 60.48,
+      "previous_time_seconds": 38.88,
+      "doorway_path_distance_m": 3.160774852393337,
+      "appearance_distance": 0.36461004185067936
+    },
+    {
+      "id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1980,
+      "time_seconds": 79.2,
+      "previous_time_seconds": 75.84,
+      "doorway_path_distance_m": 2.8443110792462973,
+      "appearance_distance": 0.32958126248924313
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2196,
+      "time_seconds": 87.84,
+      "previous_time_seconds": 84.48,
+      "doorway_path_distance_m": 2.6914825723704348,
+      "appearance_distance": 0.4385287822789068
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 2412,
+      "time_seconds": 96.48,
+      "previous_time_seconds": 96.0,
+      "doorway_path_distance_m": 0.8570048124014777,
+      "appearance_distance": 0.36410018815392253
+    },
+    {
+      "id": 1,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 2904,
+      "time_seconds": 116.16,
+      "previous_time_seconds": 115.68,
+      "doorway_path_distance_m": 0.592761880041788,
+      "appearance_distance": 0.4165354514272923
+    },
+    {
+      "id": 2,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2940,
+      "time_seconds": 117.6,
+      "previous_time_seconds": 114.24,
+      "doorway_path_distance_m": 2.5515310996064398,
+      "appearance_distance": 0.39923587048796405
+    },
+    {
+      "id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 3144,
+      "time_seconds": 125.76,
+      "previous_time_seconds": 125.28,
+      "doorway_path_distance_m": 0.7246117087213271,
+      "appearance_distance": 0.2513534264016747
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3192,
+      "time_seconds": 127.68,
+      "previous_time_seconds": 126.72,
+      "doorway_path_distance_m": 1.2868484533465216,
+      "appearance_distance": 0.18485820721666857
+    },
+    {
+      "id": 4,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 3636,
+      "time_seconds": 145.44,
+      "previous_time_seconds": 144.96,
+      "doorway_path_distance_m": 0.6120632823327061,
+      "appearance_distance": 0.17981689719659544
+    },
+    {
+      "id": 4,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3972,
+      "time_seconds": 158.88,
+      "previous_time_seconds": 155.52,
+      "doorway_path_distance_m": 2.5589066158482523,
+      "appearance_distance": 0.3158083195174264
+    }
+  ],
+  "ground_truth": [
+    {
+      "gt_id": 1,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 547
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1017
+    },
+    {
+      "gt_id": 2,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 1357
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1963
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2136
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 2404
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2860
+    },
+    {
+      "gt_id": 1,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 2898
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 3123
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3189
+    },
+    {
+      "gt_id": 2,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 3634
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3904
+    }
+  ],
+  "note": "Inferred IDs are tracker IDs; ground truth IDs are evaluation-only"
+}

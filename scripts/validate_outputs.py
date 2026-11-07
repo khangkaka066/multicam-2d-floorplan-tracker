@@ -16,6 +16,9 @@ def main():
     root = Path(__file__).resolve().parents[1]
     output = root / "outputs"
     config = json.loads((output / "map_config.json").read_text())
+    if config.get("dataset") == "CITIC-MTMC":
+        from scripts.validate_citic_outputs import validate
+        return validate(output, root / "data/citic_mtmc")
     transforms = json.loads((output / "transforms_refined.json").read_text())
     assert config["schema_version"] == 3 and len(config["rooms"]) == 2
     assert config["physical_building_registration"] is False

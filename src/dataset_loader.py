@@ -130,6 +130,9 @@ def discover_rooms(root):
     rooms = []
     for path in paths:
         manifest = json.loads(path.read_text())
+        if manifest.get("dataset") == "CITIC-MTMC":
+            # Its building-level calibration/topology adapter is dispatched by main.py.
+            continue
         cameras = manifest.get("cameras", [])
         if not cameras:
             continue

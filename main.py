@@ -79,7 +79,9 @@ def main():
     )
     parser.add_argument("--topology", type=Path, help="Default: configs/topology.json if present")
     parser.add_argument("--weights", type=Path, default=root / "models/yolo11n-pose.pt")
-    parser.add_argument("--frames", type=int, default=100)
+    parser.add_argument("--frames", type=int, help="Verification samples; default CITIC 360, EPFL 100")
+    parser.add_argument("--sample-stride", type=int, default=12,
+                        help="CITIC: source frames between synchronized samples (25 source FPS)")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--imgsz", type=int)
     parser.add_argument("--show-raw", action="store_true")
@@ -87,8 +89,22 @@ def main():
         "--building", type=Path, help="Legacy explicit room/door geometry for stitch mode"
     )
     args = parser.parse_args()
-    if args.frames < 1:
-        parser.error("--frames must be positive")
+    if (args.frames is not None and args.frames < 1) or args.sample_stride < 1:
+        parser.error("--frames and --sample-stride must be positive")
+    citic_root = root / "data/citic_mtmc"
+    # Prefer the real connected-building benchmark when prepared; explicit EPFL paths still work.
+    if (args.data_dir == root / "data" and (citic_root / "manifest.json").exists()
+            and args.room is None and args.mode != "stitch"):
+        args.data_dir = citic_root
+    manifest_path = args.data_dir / "manifest.json"
+    if manifest_path.exists() and json.loads(manifest_path.read_text()).get("dataset") == "CITIC-MTMC":
+        if args.mode == "stitch" or args.layout == "atlas" or args.building or args.room:
+            parser.error("CITIC uses its published connected building; choose all/build-map/calibrate/project/build-global")
+        from src.citic_pipeline import run
+        args.frames = args.frames or 360
+        run(args, root)
+        return
+    args.frames = args.frames or 100
     if args.topology is None and (root / "configs/topology.json").exists():
         args.topology = root / "configs/topology.json"
     if args.mode == "stitch":

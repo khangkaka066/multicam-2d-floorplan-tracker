@@ -1,209 +1,179 @@
 # Multi-Camera 2D Floorplan Tracker
 
-**Turn overlapping camera views into an architectural floorplan with one fused location per person.**
+Project real people from five synchronized cameras onto one connected, four-space building floorplan.
 
-![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.11-EE4C2C?logo=pytorch&logoColor=white)
-![Ultralytics YOLO](https://img.shields.io/badge/Ultralytics-YOLO11_Pose-111F68)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.12-5C3EE8?logo=opencv&logoColor=white)
+The primary multi-room benchmark is **CITIC-MTMC capture1**: Entrance Hall (`HallWide`, `HallSeg`), Passageway PF (`PF`), Passageway PC (`PC`), and Showroom (`Showroom`). These recordings contain real pedestrian transitions within one building. [Official dataset](https://github.com/GTEC-UDC/citic-mtmc-dataset) · [Video archive](https://doi.org/10.5281/zenodo.17511785).
 
-## Visual showcase
+![Five real synchronized CITIC camera views, fused tracker locations and independent waypoint ground truth](assets/verification_bev.png)
 
-![Eight camera views and fused people on two architectural maps](assets/verification_bev.png)
+![One connected CITIC floorplan with all five camera positions, visibility cones and shared doorways](assets/global_2d_map.png)
 
-*Eight real EPFL camera views → two room maps → one bold marker per fused identity. Laboratory frame 578 shows 2 people; Passageway frame 328 shows 4. These reference counts validate the result; they are not inputs to inference.*
+*All five camera triangles sit on inferred wall/end-cap mounts. Their FOV fills and outlines stay inside their assigned rooms, and exterior camera labels avoid pedestrian IDs and door labels. The camera-rendering correction preserves the calibrated poses, homographies and pedestrian projections.*
 
-![Architectural maps with wall-mounted cameras and fields of view](assets/global_2d_map.png)
+The floorplan and calibration come from the dataset's published `room_map.json` and `Node*.json`. The pipeline imports each space into a local frame, rigidly stitches shared doorway centers, checks that all rooms agree on the same building coordinates, and centers the frame on the camera network. This benchmark validates connected-room projection and tracking using supplied geometry. Image-only reconstruction remains a separate research capability of the EPFL adapter.
 
-*Straight wall boundaries, estimated camera positions, wall-reaching FOV cones and a trajectory-supported doorway candidate. Laboratory and Passageway are independent recordings: the canvas is an unregistered display atlas, not a recovered physical connection between them.*
+## Reproduce the CITIC result
 
-![Synthetic three-room topology stitching example](assets/topology_stitching_demo.png)
-
-*Synthetic regression example: three rooms connected through declared doorways, including a 90° rotation and a 0.2 m connector. This is a topology demonstration, separate from the real EPFL scenes above. Reproduce with `python scripts/render_topology_example.py`.*
-
-A working research prototype with synthetic multi-room topology tests and real-data verification on **2 scenes / 8 cameras / 100 verification frames per camera**. It combines metric depth and image floor–wall seams with published EPFL ground-plane calibration, pose estimation, joint homography refinement and person fusion. It does not yet provide calibration-free reconstruction of arbitrary rooms or a production live-stream service.
-
-## System architecture
-
-```mermaid
-flowchart TD
-    subgraph Offline["Stage 1 · Offline floorplan and calibration"]
-        A["Room keyframes + calibration adapters"] --> B["Metric depth + floor/wall segmentation"]
-        B --> C["RANSAC planes + image boundary projection"]
-        C --> D["Manhattan walls, corners and local camera poses"]
-        D --> E["Multi-frame footpoint bundle adjustment"]
-        E --> F["Floorplan + map_config.json + homographies"]
-        D --> G["Trajectory entry/exit clustering"]
-        G --> T["Transition time + appearance matching"]
-        T --> U["Topology config fallback + rigid doorway snapping"]
-        U --> F
-    end
-    subgraph Online["Stage 2 · Per-frame projection and fusion"]
-        H["Camera frames"] --> I["YOLO11 pose + appearance features"]
-        I --> J["Visible ankles or anthropometric extrapolation"]
-        J --> K["Image-to-map projection"]
-        F --> K
-        K --> L["Hungarian association + uncertainty weighting"]
-        L --> M["Robust fusion + persistent IDs + room headcounts"]
-        M --> N["BEV image and verification video"]
-    end
-```
-
-The second stage currently runs over recorded clips. Its structure supports per-frame processing; real-time throughput is not claimed.
-
-## Core technical highlights
-
-- **Manhattan room layout extraction.** Metric Depth Anything V2 and SegFormer B2 identify structural support. RANSAC ground/wall planes and image floor–wall seam pixels feed orthogonal boundary fitting. Room boundaries do not come from padded person trajectories. The vectorizer also supports rectilinear polygons; the supplied scene reconstructions are rectangular visible domains.
-- **Anthropometric occlusion compensation.** Use ankle midpoint at 1.0× when visible, with a small foot-contact offset; fall back to head-to-knee 1.6×, head-to-hip 2.0×, head-to-elbow 3.0× or head-to-shoulder 5.0× visible height. Torso/head-to-joint scaling estimates missing lower-body length. Extrapolated points receive lower confidence and do not calibrate homographies.
-- **Cross-camera footpoint bundle adjustment.** Hungarian associations combine spatial proximity, appearance and ordering. Joint nonlinear optimization refines an eight-parameter projective correction for each camera using reliable multi-frame ankles, room boundaries and geometry priors. Interleaved validation frames, including displayed index 78, are excluded from fitting.
-- **Distance and grazing-angle weighted fusion.** Weights begin with ankle confidence divided by squared 3D camera distance. Projection-Jacobian conditioning and truncation/confidence penalties reduce unstable far-view contributions. Every accepted pair in a fused group must lie within 0.35 m; at most one observation per camera can contribute.
-- **One identity, one marker.** Persistent IDs and room headcounts replace raw camera-dot counts. Confirmed tracks may coast through at most 5 frames of occlusion; predicted records are flagged and rendered with an asterisk. Optional faint points/tethers expose the underlying observations.
-- **Two-tier room topology.** Shared-clock trajectory exits/entries are matched by appearance and travel-time windows. Declarative `configs/topology.json` links supply missing adjacency. Orthogonal rigid transforms align doorways and walls; disconnected components fall back to an atlas. [Import and topology guide](docs/multi_room.md).
-
-## Quickstart
-
-### 1. Install
-
-Tested on **Python 3.10**, macOS ARM, using CPU pose inference (structural backends select MPS when available). Linux/CUDA can be selected through `--device`; that configuration has not been benchmarked here. Install system **Git, curl and FFmpeg**, then:
+Tested locally on Python 3.10, macOS ARM, CPU. Git and curl are required. Models, videos and generated caches stay outside Git.
 
 ```bash
-git clone https://github.com/khangkaka066/multicam-2d-floorplan-tracker.git
-cd multicam-2d-floorplan-tracker
 python3.10 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+python scripts/download_person_models.py
+python scripts/download_structural_models.py --semantics-only
+python scripts/download_citic_mtmc.py
+python main.py --data-dir data/citic_mtmc --frames 360 --sample-stride 12 --imgsz 960
+python -m pytest -q
+python scripts/validate_outputs.py
 ```
 
-`requirements.txt` pins direct runtime dependencies. It is not an operating-system-specific transitive lockfile. Models and videos are downloaded separately and are never committed.
+The downloader resolves Zenodo concept record `17511785` to version record `17512043`, reads the ZIP central directory, and downloads only capture1's five video members (about 245 MB compressed). Each extracted video is checked against its ZIP CRC32 and uncompressed size. It records the archive URL, repository commit, source resolutions, FPS, frame counts, and licensing in `data/citic_mtmc/manifest.json`. The whole-archive MD5 is recorded as provenance; member-only downloads are verified by their individual CRCs.
 
-### 2. Prepare the sample data and models
+All five recordings run at 25 FPS. Four have 4,318 frames; PC has 4,319. `--sample-stride 12 --frames 360` covers source frames 0–4308 (172.32 seconds) in all cameras. This yields 1,800 synchronized camera samples at approximately 2.08 samples/second. The MP4 plays at that sampled rate to preserve elapsed time. This is a recorded-data benchmark; live inference throughput is not claimed.
 
-Run these commands **sequentially from the repository root**. The downloaders extract the first 100 frames per camera and later synchronized verification intervals. Laboratory also downloads sparse timeline clips for entry/exit analysis.
+When CITIC is prepared, `python main.py` selects it by default and uses 360 samples. Individual stages are also available:
+
+```bash
+python main.py --data-dir data/citic_mtmc --mode build-map
+python main.py --data-dir data/citic_mtmc --mode calibrate
+python main.py --data-dir data/citic_mtmc --mode project --frames 360 --sample-stride 12
+```
+
+`build-map` and `calibrate` generate the building geometry and published camera transforms. `project` reads those files, runs cached pose acquisition, overlap calibration refinement, building tracking, evaluation and visualization. `--output-dir` selects a different runtime folder; final CITIC showcase images and metrics are also copied into `assets/`. A short geometry/pose smoke run can use `--frames 10 --sample-stride 400`; its 16-second gaps are unsuitable for tracking-quality measurements.
+
+## Geometry and shared doorways
+
+| Space | Camera(s) | Published components | Connections |
+|---|---|---|---|
+| Entrance Hall | HallWide, HallSeg | HA + HA2 + HA3 | D03 → PC |
+| Passageway PC | PC | PC | D01 → PF; D02 → Showroom; D03 → Hall |
+| Passageway PF | PF | PF | D01 → PC |
+| Showroom | Showroom | SH | D02 → PC |
+
+`HA3` is a real three-metre vestibule between the main hall and PC. It is preserved as part of the hall polygon rather than collapsing the distance between them. HA2 preserves the hall's northern extension. Other unmonitored spaces in the source plan are omitted. D01–D03 are stable labels assigned here to the three published shared centers; the dataset does not name them or provide opening widths. Drawn widths are a nominal 0.9 m, explicitly marked in metadata.
+
+Canonical building coordinates use metres, X right, Y up, Z up, with the origin at the centroid of the five camera ground positions. `T_source_to_map` converts the dataset coordinates. HallWide, PF and PC provide intrinsic/extrinsic matrices; their ground homographies are derived from those matrices. HallSeg and Showroom supply image-to-ground homographies and positions only; full extrinsics are not invented for them. Declared camera positions are retained separately where published pose matrices imply slightly different centers.
+
+Camera triangles use `render_mount_xy`: the first perimeter wall behind the published pose, with a nearest backward perimeter fallback where a main-room seam is open to an extension. These are inferred display mounts on the simplified plan; original calibrated `camera_center_world`, `camera_xy_estimate`, homographies and the tracking gauge are preserved. The mount estimate is recorded separately with its offset and provenance, rather than being presented as a new surveyed camera center.
+
+FOVs start at these mounts, follow the published angular envelope, stop at the first wall by ray casting, and are clipped to each camera's assigned room in both vector geometry and raster rendering. Hall camera coverage is restricted to the primary HA footprint; HA2/HA3 remain in the building layout as real connectors without implying camera visibility. Camera labels use collision-free exterior callouts that avoid door labels, person IDs and GT markers. The geometric room union remains one connected polygon with no overlapping room interiors, and shared door endpoints coincide numerically.
+
+## Detection, projection and building tracking
+
+```mermaid
+flowchart LR
+    A[Published room polygons and shared doors] --> B[Rigid stitching and camera-network gauge]
+    C[Published K/R/t or homography] --> B
+    D[Five synchronized real videos] --> E[YOLO11n pose and appearance]
+    E --> F[Ankle contact or body-height extrapolation]
+    F --> G[Image-to-building projection]
+    B --> G
+    D --> H[Temporal background support]
+    H --> I[Observation quality gates]
+    G --> I
+    I --> J[Overlap fusion and doorway-aware tracking]
+    J --> K[BEV and five-view verification]
+    L[Interpolated waypoint GT] --> M[Independent evaluation]
+    J --> M
+```
+
+- Visible ankles supply the ground point, with a small foot-contact offset. Missing lower bodies use head-to-knee ×1.6, hip ×2, elbow ×3 or shoulder ×5 extrapolation. Large upper-body extrapolations require stronger pose evidence to reject glare hallucinations.
+- A temporal median background rejects static pose detections on showroom exhibits. SegFormer B2 labels the background floor; contact points on cabinet/mirror surfaces are rejected, including moving reflections that a motion gate alone cannot distinguish. Extrapolated contacts outside the image remain explicitly unverified by the floor mask. All raw detections and rejection reasons remain in `projections.json`; projection positions are never clamped or snapped into rooms.
+- ImageNet ResNet18 crop features support association. It is a generic appearance descriptor, not a dedicated trained person ReID network.
+- Overlapping observations fuse using ground-distance, confidence and projection-conditioning weights. A fusion group has at most one observation per camera and a maximum pairwise diameter of 0.65 m. Single-camera observations remain valid in the three singly covered spaces, and unmatched observations from other rooms are preserved.
+- Building IDs persist across frames using spatial prediction, appearance, a travel-speed gate, and shortest paths through shared doorway centers. The tracker uses neither GT identities nor a supplied person count. `room_transitions.json` records observed cross-room handoffs.
+- A bounded translation correction can align HallSeg with HallWide using reliable simultaneous ankle observations. The first half of the sampled sequence supplies fitting pairs and the second half validates the correction; it is accepted only if held-out overlap agreement improves. No waypoint GT is used to tune it. Other rooms retain their published calibration.
+
+## Results and validation
+
+Measured results are stored in [the showcase metrics](assets/verification_metrics.json) and [the artifact validation report](assets/artifact_validation.json).
+
+| Capture1 measurement | Result |
+|---|---:|
+| Synchronized samples / camera images | 360 / 1,800 |
+| Sequence duration covered | 172.32 s |
+| GT positions / predictions | 584 / 552 |
+| Matches within 2 m | 477 |
+| Mean / median matched error | 0.337 / 0.303 m |
+| P95 matched error | 0.875 m |
+| Recall / precision within 1 m | 79.5% / 84.1% |
+| Localization-gated identity switches | 1 |
+| Doorway events matched within 4 s | 11 of 12 GT events; 14 inferred events |
+| Doorway-event recall / precision | 91.7% / 78.6% |
+| Held-out Hall overlap error before / after refinement | 0.249 / 0.209 m |
+| Maximum camera mount distance from room perimeter | < 1e-7 m |
+| FOV area outside assigned room, all five cameras | 0 m² |
+| Frames checked for collision-free camera labels | 360 |
+
+The verification image shows predicted IDs and black crosses for dataset waypoint GT at one common source timestamp. Its illustration is selected for camera coverage among frames where predictions and GT match within 1 m; all sampled frames, including misses and extra tracks, remain in the reported metrics. Colored ID numbers are tracker outputs; their numbering is independent of GT ID numbering. Doorway events are also compared one-to-one with GT room transitions using a 4-second tolerance; false and delayed handoffs remain visible in the JSON report.
+
+Ground truth is generated by the dataset authors from phone check-ins at floor waypoints, with interpolation between points. It is not a per-frame survey of ankle contacts. The author script also excludes `invitado1` from capture1 GT. The report gives frame-wise Hungarian matches, mean/median/P95 errors within a 2 m match gate, recall and precision at 1 m and 2 m, and identity switches. Recall and precision expose missing and extra tracks alongside the gated error statistic. Capture1 is used for development and verification; these results do not establish generalization to unseen captures. Identity fragmentation and missed detections remain measurable limitations; a clean building map alone does not establish perfect tracking.
+
+The artifact validator independently rechecks source calibration, camera pose/homography identities, common gauge, connected room geometry, shared doorway alignment, unchanged pose-to-map projection, singleton/overlap fusion, GT frame indexing, reported metrics, source-frame decoding, and output video decoding. Its localization gates are mean matched error ≤0.75 m and recall/precision at 1 m ≥70%; these are benchmark acceptance thresholds, not survey-accuracy claims.
+
+The current local run passes **48 pytest tests** and `scripts/validate_outputs.py`. Tests cover retaining disjoint camera observations, overlap deduplication, single-camera tracking and doorway handoffs, the one-based GT convention, rejection of overlap refinements that worsen held-out data, and real CITIC camera/geometry consistency when the dataset is installed. Camera-layout regressions check backward perimeter snapping, rejection of internal component seams as mount walls, first-wall occlusion in concave rooms, vector/raster FOV containment, and label placement clear of walls, doors and people. EPFL tests remain supported.
+
+## Outputs and module boundaries
+
+| File under `outputs/` | Contents |
+|---|---|
+| `global_2d_map.png`, `global_map.png` | Unified building floorplan and five camera visibility cones |
+| `room_<room_id>_map.png` | Intermediate room geometry with its camera(s) |
+| `map_config.json` | Room polygons, walls, shared doors, source/canvas transforms and provenance |
+| `transforms.json` | Original published-calibration image ↔ canonical-building homographies for all five cameras |
+| `transforms_refined.json` | Matrices used for projection, including any accepted overlap correction |
+| `projections.json` | Source timestamps, keypoints, contact pixels, raw map positions, quality gates, fusion members and tracker IDs |
+| `verification_bev.png` | One synchronized five-view panel with projected IDs and independent GT |
+| `verification_projection.mp4` | All sampled BEV frames at the correct elapsed-time playback rate |
+| `verification_metrics.json`, `ground_truth_matches.json` | Reproducible waypoint comparison and localization/identity statistics |
+| `room_transitions.json` | Inferred handoffs and separate GT room transitions |
+| `projection_optimization.json` | Overlap-only fit/validation evidence and acceptance decision |
+| `artifact_validation.json` | Geometry, projection, fusion, quality and media checks |
+
+```text
+scripts/download_citic_mtmc.py   Resumable member caching, CRC verification and video manifest
+src/citic_dataset.py            Dataset adapter, local room geometry and published calibration
+src/architecture.py             Shared architectural representation and rigid doorway stitching
+src/camera_layout.py            Separate perimeter mounts and wall-occluded FOV geometry
+src/person_locator.py           Shared pose plugin and anthropometric extrapolation
+src/appearance.py, fusion.py     Shared appearance features and uncertainty-weighted fusion
+src/citic_foreground.py         Temporal background, semantic floor and pose-evidence gates
+src/building_tracker.py         Observation-preserving association and building-wide IDs
+src/citic_optimization.py        Held-out overlap calibration refinement
+src/citic_evaluation.py          Evaluation-only waypoint loading and metrics
+src/citic_visualizer.py          Building map and synchronized camera panel
+src/citic_pipeline.py            Stage orchestration and reproducible artifacts
+```
+
+Matrix direction is explicit:
+
+```text
+[X, Y, 1]ᵀ ∝ H_image_to_map @ [u, v, 1]ᵀ
+[u, v, 1]ᵀ ∝ H_map_to_image @ [X, Y, 1]ᵀ
+p_canvas   ∝ T_map_to_canvas @ p_map
+```
+
+Use `transforms_refined.json` for the saved person projections. Normalize homogeneous coordinates after multiplication.
+
+## Earlier EPFL and synthetic benchmarks
+
+The existing depth/segmentation structural reconstruction and EPFL calibration adapters remain available. EPFL Laboratory and Passageway are independent recordings, so combining them produces an unregistered display atlas. They cannot validate real cross-room identity transitions. [Earlier implementation details](docs/validation.md) · [Manifest and topology guide](docs/multi_room.md).
 
 ```bash
 python scripts/download_sample_data.py
 python scripts/download_additional_scenes.py
-python scripts/download_person_models.py
 python scripts/download_structural_models.py
 python scripts/download_passageway_verification.py
+python main.py --data-dir data --room laboratory --output-dir outputs/epfl_laboratory
+python main.py --data-dir data/passageway --output-dir outputs/epfl_passageway
+python scripts/render_topology_example.py
 ```
 
-Structural model downloads total several hundred MB. Data utilities request bounded video prefixes or short clips rather than whole recordings. Network access is required for preparation; the prepared pipeline runs locally. Re-running `download_additional_scenes.py` resets Passageway's verification selection, so run its verification downloader again afterward.
-
-### 3. Run end to end
-
-```bash
-python main.py
-```
-
-The default `all` mode discovers every room manifest under `data/`, reconstructs/calibrates each room, acquires poses, refines homographies, analyzes entry/exit zones, and assembles the result to `outputs/`. Ground rectification runs inside the core build step. `--layout stitched` first uses observed transitions, then `configs/topology.json`; independent recordings without links fall back to an atlas.
-
-Or run individual stages for one scene:
-
-```bash
-python main.py --mode build-map --data-dir data --room laboratory --output-dir outputs/laboratory
-python main.py --mode calibrate --data-dir data/passageway --output-dir outputs/passageway
-python main.py --mode project --data-dir data --room laboratory --output-dir outputs/laboratory
-python main.py --mode project --data-dir data/passageway --output-dir outputs/passageway
-python main.py --mode build-global
-```
-
-`build-map` and `calibrate` share structural reconstruction/calibration and now include entry analysis plus multi-room assembly. New datasets use manifests with camera/image/video paths and image-to-ground calibration. See [multi-room imports, timing and declared doorways](docs/multi_room.md). `build-global` assembles existing local projections without rerunning models.
-
-| Option | Meaning |
-|---|---|
-| `--frames 100` | Number of verification frames (bounded by available camera frames) |
-| `--room office` | Select one discovered room |
-| `--layout stitched` | Infer/configure doorway links, with atlas fallback |
-| `--layout atlas` | Force a display atlas |
-| `--topology configs/topology.json` | Explicit adjacency and transition thresholds |
-| `--device cpu` | Pose device; CPU is the validated default |
-| `--imgsz 1280` | Override the high-resolution pose pass |
-| `--show-raw` | Add faint local raw points and fusion tethers |
-| `--mode stitch --building tests/fixtures/building.json` | Exercise explicit doorway-constrained stitching on a **synthetic test fixture** |
-
-Laboratory uses a deduplicated 384 + 960 pose ensemble to retain large cropped people; Passageway uses 1280 for far pedestrians. Both use `conf=0.25`. Acquisition caches include inference settings and source offsets. Delete scene `pose_observations*.json` files to force fresh detection.
-
-### 4. Verify
-
-```bash
-python -m unittest discover -s tests -v
-python scripts/validate_outputs.py
-# Optional diagnostic rendering; does not overwrite the normal showcase:
-python scripts/render_fusion_debug.py
-```
-
-Unit tests run without model downloads. Two calibration integration tests require EPFL data and are explicitly skipped when it is absent. The artifact validator requires the complete 100-frame, two-scene run; it checks projection identities, camera extrinsics, orthogonal walls, fused centroids, selected reference counts and video decoding.
-
-## Repository structure
-
-```text
-assets/                       Final tracked showcase images and small JSON snapshots
-docs/
-  2dmap.md                    Original architecture and mathematical design reference
-  validation.md               Implementation details and validation limits
-  multi_room.md               Dataset manifests, clocks and two-tier topology
-configs/                      Default and example doorway adjacency JSON
-  THIRD_PARTY.md              Dataset/model sources and attribution
-scripts/                      Dataset/model setup, doorway analysis and validation
-src/
-  dataset_loader.py           Manifest adapter and synchronized frame loading
-  map_builder.py              Architectural room construction and rendering
-  calibrator.py               Ground-plane calibration and consistency reports
-  person_locator.py           Pose detection and occlusion compensation
-  bev_visualizer.py           Fused BEV and camera-panel/video rendering
-  structure.py, semantics.py  Metric depth, segmentation and structural planes
-  boundaries.py              Image seam extraction and Manhattan boundary fitting
-  architecture.py            Wall/corner representation and rigid room stitching
-  bundle_adjustment.py       Joint projective camera refinement
-  fusion.py, appearance.py   Association, weighting, tracking and crop features
-  observations.py            Cacheable pose acquisition
-  projection_pipeline.py     Refinement/fusion orchestration
-  scene_atlas.py             Topology-aware building/atlas composition
-  topology.py                Doorway detection and cross-room transitions
-  geometry.py                Projection and JSON utilities
-tests/                        Geometry, architecture and fusion regressions
-outputs/                      Ignored runtime outputs; generated by main.py
-data/, models/, .venv/        Local only; ignored by Git
-main.py                       Unified CLI; defaults to the full sample workflow
-requirements.txt              Pinned direct dependencies
-```
-
-`docs/2dmap.md` describes the broader target architecture, including research alternatives. The README and implementation notes describe the route actually implemented.
-
-## Output schema
-
-The checked-in `assets/` files are display snapshots. Runtime commands read/write `outputs/`, with scene-local files under `outputs/laboratory/` and `outputs/passageway/`.
-
-| File | Contents |
-|---|---|
-| `global_2d_map.png` | Base architectural map, camera icons and FOV cones |
-| `verification_bev.png` | Camera frames beside fused IDs and room headcounts |
-| `verification_projection.mp4` | Full verification sequence, 100 frames at source 25 fps; not an inference-speed benchmark |
-| `map_config.json` | Schema version, units, room polygons, corners, walls/openings, doorway evidence, map-to-canvas transform and registration status |
-| `transforms.json` | Structural image/map homographies and estimated camera intrinsics/extrinsics, keyed by camera ID |
-| `transforms_refined.json` | Footpoint-refined matrices, inverse/canvas mappings, original matrices and bundle corrections |
-| `projections.json` | Per-frame raw detections, measured pixels, accepted/rejected projections, fused people, IDs, states and headcounts |
-| `verification_metrics.json` | Counts and per-scene detection/fusion statistics |
-| `artifact_validation.json` | Geometry, matrix, fusion and saved-media consistency checks |
-
-Matrix directions are explicit; normalize the third coordinate after multiplication:
-
-```text
-[X, Y, 1]ᵀ  ∝ H_image_to_map  @ [u, v, 1]ᵀ
-[u, v, 1]ᵀ  ∝ H_map_to_image @ [X, Y, 1]ᵀ
-p_canvas    ∝ T_map_to_canvas @ p_map
-C_world     = -R_world_to_cameraᵀ @ t_world_to_camera
-```
-
-Use **`transforms_refined.json` for person projection** and retain the original file for structural camera-pose diagnostics. Metric dimensions/intrinsics are estimates. Atlas scene translations are presentation transforms; `physical_building_registration` is `false` for the supplied scenes. Global display IDs do not imply identity tracking between the independent recordings.
-
-## Results and limits
-
-The published snapshot has 2 observed multi-camera fusions in Laboratory and 4 in Passageway; none of its markers is predicted. Its maximum accepted group diameter is **0.344 m**. This measures internal cross-camera agreement, **not surveyed absolute position accuracy**. Some raw observations exceed 0.35 m and are rejected from fusion; full-clip counts can vary with occlusion. ResNet18 supplies pretrained image features, not a dedicated trained ReID model.
-
-See [implementation and validation details](docs/validation.md) and the [saved validation report](assets/artifact_validation.json).
+The [synthetic topology fixture](assets/topology_stitching_demo.png) separately tests rotations, doorway constraints and connector gaps; it is not part of the real CITIC evidence. [The original design reference](docs/2dmap.md) describes broader reconstruction research routes.
 
 ## Attribution and licensing
 
-The repository's existing [MIT license](LICENSE) applies to its original project code. Dataset imagery, pretrained weights and downloaded third-party code retain their respective terms; see [third-party sources](docs/THIRD_PARTY.md). Raw data, models, environments and runtime caches are excluded from Git. EPFL sample imagery is shown for research demonstration; no separate license to that imagery is granted here.
+Project code: [MIT](LICENSE). CITIC dataset imagery, floorplans and derived showcase images: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Published plan geometry is adapted into canonical coordinates and overlaid with camera/detection annotations. Pretrained models retain their own terms. See [third-party sources](docs/THIRD_PARTY.md).
+
+Please cite Á. Carro-Lagoa, V. Barral, M. González-López, C. J. Escudero and L. Castedo, *Multicamera edge-computing system for persons indoor location and tracking*, Internet of Things 24, 100940 (2023), [doi:10.1016/j.iot.2023.100940](https://doi.org/10.1016/j.iot.2023.100940), and the [CITIC-MTMC dataset](https://doi.org/10.5281/zenodo.17511785).

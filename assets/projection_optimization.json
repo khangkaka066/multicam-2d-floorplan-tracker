@@ -1,0 +1,16 @@
+{
+  "method": "HallSeg translation toward HallWide simultaneous pose consensus",
+  "gt_used": false,
+  "train_before_source_frame": 2160,
+  "training_pairs": 9,
+  "validation_pairs": 22,
+  "accepted": true,
+  "maximum_translation_m": 0.5,
+  "note": "Ground truth is excluded; independent single-camera rooms retain published calibration",
+  "candidate_translation_m": [
+    -0.0686609510996643,
+    0.09457977042958765
+  ],
+  "heldout_mean_before_m": 0.24936893261543205,
+  "heldout_mean_after_m": 0.20946188910730645
+}

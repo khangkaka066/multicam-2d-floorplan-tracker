@@ -1,51 +1,49 @@
 {
   "passed": true,
-  "real_scenes": 2,
-  "real_cameras": 8,
-  "decoded_jpeg_frames": 1600,
-  "decoded_verification_video_frames": 100,
-  "displayed_points_strictly_inside": 2116,
-  "rejected_unmodified_projections": 2,
-  "max_projection_error_m": 1.0658141036401503e-14,
-  "inspected_headcounts": {
-    "laboratory": 2,
-    "passageway": 4
+  "dataset": "CITIC-MTMC capture1",
+  "real_rooms": 4,
+  "real_cameras": 5,
+  "physical_building_registration": true,
+  "connected_floor_polygon": true,
+  "maximum_doorway_alignment_error_m": 0.0,
+  "camera_mount_perimeter_error_m": {
+    "HallWide": 8.881784197001252e-16,
+    "HallSeg": 0.0,
+    "PF": 8.881784197001252e-16,
+    "PC": 0.0,
+    "Showroom": 0.0
   },
-  "inspected_global_ids": [
-    1,
-    2,
-    5,
-    6,
-    3,
-    4
-  ],
-  "maximum_accepted_fusion_diameter_m": 0.3490091396726012,
-  "predicted_person_observations": 35,
-  "max_group_diameter_at_requested_frame_m": 0.34429639587482147,
-  "all_raw_validation_pairs_meet_035m": false,
-  "max_C_identity_error_m": 3.978256139440565e-15,
-  "orthogonal_corner_max_abs_cosine": 0.0,
-  "camera_distance_to_perimeter_m": {
-    "LAB/cam0": 0.12030532000399675,
-    "LAB/cam1": 0.12026914812513345,
-    "LAB/cam2": 0.12069453570669754,
-    "LAB/cam3": 0.12994180959269475,
-    "PASS/cam0": 0.12023294354324143,
-    "PASS/cam1": 0.12407697854943757,
-    "PASS/cam2": 0.12001209342734853,
-    "PASS/cam3": 0.08674002092411116
+  "camera_fov_outside_assigned_room_m2": {
+    "HallWide": 0.0,
+    "HallSeg": 0.0,
+    "PF": 0.0,
+    "PC": 0.0,
+    "Showroom": 0.0
   },
-  "estimated_horizontal_fov_degrees": {
-    "LAB/cam0": 52.070094161414815,
-    "LAB/cam1": 54.53935388383291,
-    "LAB/cam2": 54.96777542753498,
-    "LAB/cam3": 50.82689627279697,
-    "PASS/cam0": 57.060892792923305,
-    "PASS/cam1": 33.97339518879214,
-    "PASS/cam2": 64.35688226526815,
-    "PASS/cam3": 46.681059450756166
+  "collision_free_camera_label_frames": 360,
+  "pose_ground_point_methods": {
+    "shoulders_x5": 55,
+    "ankles": 1269,
+    "elbows_x3": 34,
+    "hips_x2": 47,
+    "knees_x1.6": 26
   },
-  "maximum_fov_ray_length_m": 20.786123835495644,
-  "shared_doorway_registration": "UNKNOWN; not fabricated",
-  "scope": "Internal geometry and artifact consistency; dimensions, priors and trajectory doors are not survey validation."
+  "accepted_pose_observations": 604,
+  "rejected_unmodified_observations": 827,
+  "max_projection_error_m": 0.0,
+  "decoded_source_samples": 15,
+  "decoded_verification_frames": 360,
+  "localization_quality_gates": {
+    "mean_matched_error_below_075m": true,
+    "recall_at_1m_at_least_70pct": true,
+    "precision_at_1m_at_least_70pct": true
+  },
+  "mean_matched_error_m": 0.33741183180457335,
+  "recall_at_1m": 0.7945205479452054,
+  "precision_at_1m": 0.8405797101449275,
+  "identity_switches_at_2m": 1,
+  "inferred_room_handoffs": 14,
+  "doorway_event_precision": 0.7857142857142857,
+  "doorway_event_recall": 0.9166666666666666,
+  "accuracy_scope": "Independent interpolated waypoint GT; identities may fragment; published map/calibration, not image-only reconstruction"
 }

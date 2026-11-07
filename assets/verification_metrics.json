@@ -1,0 +1,371 @@
+{
+  "ground_truth_positions": 584,
+  "predicted_positions": 552,
+  "matched_positions": 477,
+  "matches_at_1m": 464,
+  "mean_error_m": 0.33741183180457335,
+  "median_error_m": 0.3027829763518924,
+  "p95_error_m": 0.8751009119608281,
+  "recall_at_1m": 0.7945205479452054,
+  "precision_at_1m": 0.8405797101449275,
+  "recall_at_2m": 0.8167808219178082,
+  "precision_at_2m": 0.8641304347826086,
+  "identity_switches_at_2m": 1,
+  "gt_input_to_inference": false,
+  "metric_scope": "Hungarian one-to-one frame matches; 2m error gate",
+  "gt_limitations": "phone waypoint interpolation, not per-frame surveyed footpoints; capture1 excludes invitado1 in author GT script",
+  "ground_truth_room_transitions": [
+    {
+      "gt_id": 1,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 547
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1017
+    },
+    {
+      "gt_id": 2,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 1357
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1963
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2136
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 2404
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2860
+    },
+    {
+      "gt_id": 1,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 2898
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 3123
+    },
+    {
+      "gt_id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3189
+    },
+    {
+      "gt_id": 2,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 3634
+    },
+    {
+      "gt_id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3904
+    }
+  ],
+  "doorway_event_comparison": {
+    "tolerance_seconds": 4.0,
+    "predicted_events": 14,
+    "gt_events": 12,
+    "matched_events": 11,
+    "precision": 0.7857142857142857,
+    "recall": 0.9166666666666666,
+    "identity_correctness": "evaluated separately as localization-gated identity switches",
+    "matches": [
+      {
+        "predicted_id": 1,
+        "gt_id": 1,
+        "from_room": "entrance_hall",
+        "to_room": "passageway_pc",
+        "predicted_source_frame": 564,
+        "gt_source_frame": 547,
+        "timing_error_seconds": 0.68
+      },
+      {
+        "predicted_id": 2,
+        "gt_id": 2,
+        "from_room": "entrance_hall",
+        "to_room": "passageway_pc",
+        "predicted_source_frame": 1404,
+        "gt_source_frame": 1357,
+        "timing_error_seconds": 1.88
+      },
+      {
+        "predicted_id": 2,
+        "gt_id": 2,
+        "from_room": "passageway_pc",
+        "to_room": "passageway_pf",
+        "predicted_source_frame": 1980,
+        "gt_source_frame": 1963,
+        "timing_error_seconds": 0.68
+      },
+      {
+        "predicted_id": 1,
+        "gt_id": 1,
+        "from_room": "passageway_pf",
+        "to_room": "passageway_pc",
+        "predicted_source_frame": 2196,
+        "gt_source_frame": 2136,
+        "timing_error_seconds": 2.4
+      },
+      {
+        "predicted_id": 1,
+        "gt_id": 1,
+        "from_room": "passageway_pc",
+        "to_room": "showroom",
+        "predicted_source_frame": 2412,
+        "gt_source_frame": 2404,
+        "timing_error_seconds": 0.32
+      },
+      {
+        "predicted_id": 1,
+        "gt_id": 1,
+        "from_room": "showroom",
+        "to_room": "passageway_pc",
+        "predicted_source_frame": 2904,
+        "gt_source_frame": 2898,
+        "timing_error_seconds": 0.24
+      },
+      {
+        "predicted_id": 2,
+        "gt_id": 2,
+        "from_room": "passageway_pf",
+        "to_room": "passageway_pc",
+        "predicted_source_frame": 2940,
+        "gt_source_frame": 2860,
+        "timing_error_seconds": 3.2
+      },
+      {
+        "predicted_id": 2,
+        "gt_id": 2,
+        "from_room": "passageway_pc",
+        "to_room": "showroom",
+        "predicted_source_frame": 3144,
+        "gt_source_frame": 3123,
+        "timing_error_seconds": 0.84
+      },
+      {
+        "predicted_id": 1,
+        "gt_id": 1,
+        "from_room": "passageway_pc",
+        "to_room": "entrance_hall",
+        "predicted_source_frame": 3192,
+        "gt_source_frame": 3189,
+        "timing_error_seconds": 0.12
+      },
+      {
+        "predicted_id": 4,
+        "gt_id": 2,
+        "from_room": "showroom",
+        "to_room": "passageway_pc",
+        "predicted_source_frame": 3636,
+        "gt_source_frame": 3634,
+        "timing_error_seconds": 0.08
+      },
+      {
+        "predicted_id": 4,
+        "gt_id": 2,
+        "from_room": "passageway_pc",
+        "to_room": "entrance_hall",
+        "predicted_source_frame": 3972,
+        "gt_source_frame": 3904,
+        "timing_error_seconds": 2.72
+      }
+    ]
+  },
+  "sampled_frames": 360,
+  "sample_stride": 12,
+  "temporal_span_seconds": [
+    0.0,
+    172.32
+  ],
+  "pose_weights": "yolo11n-pose.pt",
+  "pose_input_size": 960,
+  "pose_detections": 1431,
+  "rejected_outside_building": 37,
+  "rejected_static_background": 730,
+  "rejected_weak_upper_body_pose": 48,
+  "rejected_nonfloor_contacts": 12,
+  "floor_support": "SegFormer B2 excludes explicit cabinet/mirror/furniture surfaces on 13-frame median backgrounds; ambiguous labels retained; no GT masks",
+  "tracker_ids_allocated": 6,
+  "inferred_room_transitions": [
+    {
+      "id": 1,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 564,
+      "time_seconds": 22.56,
+      "previous_time_seconds": 19.68,
+      "doorway_path_distance_m": 2.028869066977672,
+      "appearance_distance": 0.35398015412044703
+    },
+    {
+      "id": 3,
+      "from_room": "passageway_pf",
+      "to_room": "showroom",
+      "source_frame": 756,
+      "time_seconds": 30.24,
+      "previous_time_seconds": 15.84,
+      "doorway_path_distance_m": 12.393805271463172,
+      "appearance_distance": 0.6037117996489656
+    },
+    {
+      "id": 3,
+      "from_room": "showroom",
+      "to_room": "entrance_hall",
+      "source_frame": 1032,
+      "time_seconds": 41.28,
+      "previous_time_seconds": 30.24,
+      "doorway_path_distance_m": 19.148365353872272,
+      "appearance_distance": 0.5833371466981352
+    },
+    {
+      "id": 2,
+      "from_room": "entrance_hall",
+      "to_room": "passageway_pc",
+      "source_frame": 1404,
+      "time_seconds": 56.16,
+      "previous_time_seconds": 55.68,
+      "doorway_path_distance_m": 0.7717792659614129,
+      "appearance_distance": 0.14656998046517478
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1512,
+      "time_seconds": 60.48,
+      "previous_time_seconds": 38.88,
+      "doorway_path_distance_m": 3.160774852393337,
+      "appearance_distance": 0.36461004185067936
+    },
+    {
+      "id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "passageway_pf",
+      "source_frame": 1980,
+      "time_seconds": 79.2,
+      "previous_time_seconds": 75.84,
+      "doorway_path_distance_m": 2.8443110792462973,
+      "appearance_distance": 0.32958126248924313
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2196,
+      "time_seconds": 87.84,
+      "previous_time_seconds": 84.48,
+      "doorway_path_distance_m": 2.6914825723704348,
+      "appearance_distance": 0.4385287822789068
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 2412,
+      "time_seconds": 96.48,
+      "previous_time_seconds": 96.0,
+      "doorway_path_distance_m": 0.8570048124014777,
+      "appearance_distance": 0.36410018815392253
+    },
+    {
+      "id": 1,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 2904,
+      "time_seconds": 116.16,
+      "previous_time_seconds": 115.68,
+      "doorway_path_distance_m": 0.592761880041788,
+      "appearance_distance": 0.4165354514272923
+    },
+    {
+      "id": 2,
+      "from_room": "passageway_pf",
+      "to_room": "passageway_pc",
+      "source_frame": 2940,
+      "time_seconds": 117.6,
+      "previous_time_seconds": 114.24,
+      "doorway_path_distance_m": 2.5515310996064398,
+      "appearance_distance": 0.39923587048796405
+    },
+    {
+      "id": 2,
+      "from_room": "passageway_pc",
+      "to_room": "showroom",
+      "source_frame": 3144,
+      "time_seconds": 125.76,
+      "previous_time_seconds": 125.28,
+      "doorway_path_distance_m": 0.7246117087213271,
+      "appearance_distance": 0.2513534264016747
+    },
+    {
+      "id": 1,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3192,
+      "time_seconds": 127.68,
+      "previous_time_seconds": 126.72,
+      "doorway_path_distance_m": 1.2868484533465216,
+      "appearance_distance": 0.18485820721666857
+    },
+    {
+      "id": 4,
+      "from_room": "showroom",
+      "to_room": "passageway_pc",
+      "source_frame": 3636,
+      "time_seconds": 145.44,
+      "previous_time_seconds": 144.96,
+      "doorway_path_distance_m": 0.6120632823327061,
+      "appearance_distance": 0.17981689719659544
+    },
+    {
+      "id": 4,
+      "from_room": "passageway_pc",
+      "to_room": "entrance_hall",
+      "source_frame": 3972,
+      "time_seconds": 158.88,
+      "previous_time_seconds": 155.52,
+      "doorway_path_distance_m": 2.5589066158482523,
+      "appearance_distance": 0.3158083195174264
+    }
+  ],
+  "observed_rooms": [
+    "entrance_hall",
+    "passageway_pc",
+    "passageway_pf",
+    "showroom"
+  ],
+  "camera_detection_counts": {
+    "HallWide": 141,
+    "HallSeg": 167,
+    "PF": 118,
+    "PC": 219,
+    "Showroom": 786
+  }
+}

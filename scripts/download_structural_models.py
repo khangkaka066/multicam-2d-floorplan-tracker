@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Download pinned official inference code and model weights into models/."""
 from pathlib import Path
+import argparse
 import hashlib
 import json
 import subprocess
@@ -28,28 +29,34 @@ def download(url, target, expected=None):
 def main():
     folder = ROOT / "models"
     folder.mkdir(exist_ok=True)
-    vendor = folder / "Depth-Anything-V2"
-    if not vendor.exists():
-        subprocess.run(
-            ["git", "clone", "https://github.com/DepthAnything/Depth-Anything-V2.git", str(vendor)],
-            check=True,
-        )
-    current = subprocess.check_output(
-        ["git", "-C", str(vendor), "rev-parse", "HEAD"], text=True
-    ).strip()
-    if current != VENDOR_COMMIT:
-        if subprocess.check_output(
-            ["git", "-C", str(vendor), "status", "--porcelain"], text=True
-        ).strip():
-            raise RuntimeError("Vendor checkout has local changes; cannot switch revisions")
-        subprocess.run(["git", "-C", str(vendor), "checkout", VENDOR_COMMIT], check=True)
-    records = [
-        download(
-            "https://huggingface.co/depth-anything/Depth-Anything-V2-Metric-Hypersim-Small/resolve/main/depth_anything_v2_metric_hypersim_vits.pth",
-            folder / "depth_anything_v2_metric_hypersim_vits.pth",
-            DEPTH_HASH,
-        )
-    ]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--semantics-only", action="store_true",
+                        help="Download SegFormer floor-support weights without the depth backend")
+    args = parser.parse_args()
+    records = []
+    if not args.semantics_only:
+        vendor = folder / "Depth-Anything-V2"
+        if not vendor.exists():
+            subprocess.run(
+                ["git", "clone", "https://github.com/DepthAnything/Depth-Anything-V2.git", str(vendor)],
+                check=True,
+            )
+        current = subprocess.check_output(
+            ["git", "-C", str(vendor), "rev-parse", "HEAD"], text=True
+        ).strip()
+        if current != VENDOR_COMMIT:
+            if subprocess.check_output(
+                ["git", "-C", str(vendor), "status", "--porcelain"], text=True
+            ).strip():
+                raise RuntimeError("Vendor checkout has local changes; cannot switch revisions")
+            subprocess.run(["git", "-C", str(vendor), "checkout", VENDOR_COMMIT], check=True)
+        records = [
+            download(
+                "https://huggingface.co/depth-anything/Depth-Anything-V2-Metric-Hypersim-Small/resolve/main/depth_anything_v2_metric_hypersim_vits.pth",
+                folder / "depth_anything_v2_metric_hypersim_vits.pth",
+                DEPTH_HASH,
+            )
+        ]
     segmenter = folder / "segformer-b2"
     segmenter.mkdir(exist_ok=True)
     for filename in ["config.json", "preprocessor_config.json", "pytorch_model.bin"]:
@@ -59,8 +66,8 @@ def main():
                 segmenter / filename,
             )
         )
-    (folder / "structural_sources.json").write_text(
-        json.dumps({"vendor_commit": VENDOR_COMMIT, "models": records}, indent=2) + "\n"
+    (folder / ("semantic_sources.json" if args.semantics_only else "structural_sources.json")).write_text(
+        json.dumps({"vendor_commit": None if args.semantics_only else VENDOR_COMMIT, "models": records}, indent=2) + "\n"
     )
 
 
