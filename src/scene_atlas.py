@@ -1,26 +1,29 @@
-#!/usr/bin/env python3
-"""Render two real reconstructed scenes without inventing physical adjacency."""
-import argparse
+"""Topology-aware building assembly with an explicit disconnected-scene atlas fallback."""
+
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import cv2
 import numpy as np
-from src.geometry import project, save_json
-from src.architecture import transform_room
-from src.map_builder import configure_canvas, draw_floorplan
-from src.bev_visualizer import export_verification
-from src.dataset_loader import EPFLDataset
+from .geometry import project, save_json
+from .architecture import layout_rooms, transform_room
+from .map_builder import configure_canvas, draw_floorplan
+from .bev_visualizer import export_verification
+from .dataset_loader import RoomDataset, discover_rooms
+from .topology import load_topology
 
 
 class RealSceneDataset:
     def __init__(self, sources):
         self.cameras = []
         self.sources = {}
-        for name, root in sources:
-            dataset = EPFLDataset(root)
+        for name, source in sources:
+            dataset = source if isinstance(source, RoomDataset) else RoomDataset(source)
             for camera in dataset.cameras:
-                item = dict(camera, id=f'{name}/{camera["id"]}')
+                item = dict(
+                    camera, id=f'{name}/{camera["id"]}', source_scene=dataset.manifest["room_id"]
+                )
                 self.cameras.append(item)
                 self.sources[item["id"]] = (dataset, camera)
 
@@ -29,222 +32,277 @@ class RealSceneDataset:
         return dataset.frame(source, index, verification)
 
 
-def assemble(output, lab, passage, data_root=Path("data")):
-    source_configs = {
-        name: json.loads((root / "map_config.json").read_text())
-        for name, root in [("laboratory", lab), ("passageway", passage)]
-    }
-    lab_room = source_configs["laboratory"]["rooms"][0]
-    passage_room = source_configs["passageway"]["rooms"][0]
-    # Pure presentation transform, explicitly NOT a recovered physical building transform.
-    shift = (
-        np.max(np.asarray(lab_room["polygon"])[:, 0])
-        + 3
-        - np.min(np.asarray(passage_room["polygon"])[:, 0])
+def transform_camera(entry, matrix, canvas):
+    """Apply the same SE(2) gauge to H, C, optical axis, R and t (including rotations)."""
+    entry = deepcopy(entry)
+    matrix = np.asarray(matrix)
+    q = np.eye(3)
+    q[:2, :2] = matrix[:2, :2]
+    delta = np.r_[matrix[:2, 2], 0.0]
+    if "camera_center_world" in entry:
+        entry["camera_center_scene"] = entry["camera_center_world"]
+        entry["camera_center_world"] = (q @ entry["camera_center_world"] + delta).tolist()
+        entry["camera_xy_estimate"] = entry["camera_center_world"][:2]
+        entry["optical_axis_world"] = (q @ entry["optical_axis_world"]).tolist()
+        rotation = np.asarray(entry["R_world_to_camera"]) @ q.T
+        entry["R_world_to_camera"] = rotation.tolist()
+        entry["t_world_to_camera"] = (
+            np.asarray(entry["t_world_to_camera"]) - rotation @ delta
+        ).tolist()
+    elif "camera_xy_estimate" in entry:
+        entry["camera_xy_estimate"] = project(matrix, [entry["camera_xy_estimate"]])[0].tolist()
+    if "H_image_to_map_before_bundle" in entry:
+        entry["H_image_to_map_before_bundle"] = (
+            matrix @ entry["H_image_to_map_before_bundle"]
+        ).tolist()
+        entry["footpoint_bundle_correction"] = (
+            matrix @ entry["footpoint_bundle_correction"] @ np.linalg.inv(matrix)
+        ).tolist()
+    h = matrix @ entry["H_image_to_map"]
+    pixel = np.asarray(canvas) @ h
+    entry.update(
+        H_image_to_map=h.tolist(),
+        H_map_to_image=np.linalg.inv(h).tolist(),
+        H_image_to_canvas=pixel.tolist(),
+        H_canvas_to_image=np.linalg.inv(pixel).tolist(),
     )
-    placement = {
-        "laboratory": np.eye(3),
-        "passageway": np.array([[1, 0, shift], [0, 1, 0], [0, 0, 1.0]]),
+    return entry
+
+
+def display_schedule(originals, datasets):
+    """Align shared-clock clips by source time; independent clips pair indices only for display."""
+    timings = {name: d.manifest.get("timing", {}) for name, d in datasets.items()}
+    clocks = [t.get("clock_id") for t in timings.values()]
+    common = len(clocks) > 1 and bool(clocks[0]) and len(set(clocks)) == 1
+    if not common:
+        return [
+            {name: i for name in originals} for i in range(min(map(len, originals.values())))
+        ], False
+    stamps = {}
+    for name, records in originals.items():
+        fps = datasets[name].cameras[0]["fps"]
+        stamps[name] = np.array(
+            [
+                r.get("time_seconds", r["source_frame"] / fps)
+                + timings[name].get("time_offset_seconds", 0)
+                for r in records
+            ]
+        )
+    times = sorted({round(float(t), 6) for values in stamps.values() for t in values})
+    schedule = []
+    for timestamp in times:
+        indices = {}
+        for name, values in stamps.items():
+            nearest = int(np.argmin(abs(values - timestamp)))
+            indices[name] = (
+                nearest
+                if abs(values[nearest] - timestamp) <= 0.51 / datasets[name].cameras[0]["fps"]
+                else None
+            )
+        schedule.append(indices)
+    return schedule, True
+
+
+def assemble(output, datasets, layout="stitched", topology_path=None, maps_only=False):
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    datasets = {d.manifest["room_id"]: d for d in datasets}
+    roots = {name: output / name for name in datasets}
+    configs = {
+        name: json.loads((root / "map_config.json").read_text()) for name, root in roots.items()
     }
-    rooms = [
-        transform_room(source_configs[name]["rooms"][0], placement[name])
-        for name in ["laboratory", "passageway"]
-    ]
+    local_rooms = [configs[name]["rooms"][0] for name in datasets]
+    rooms, alignment = layout_rooms(local_rooms, load_topology(topology_path), layout)
+    placement = {room["id"]: np.asarray(room["T_local_to_global"]) for room in rooms}
+    registered = alignment["physical_building_registration"]
+    if registered:
+        centers = []
+        for name, root in roots.items():
+            local = json.loads((root / "transforms.json").read_text())
+            centers.extend(
+                project(
+                    placement[name], [e["camera_xy_estimate"] for e in local["cameras"].values()]
+                )
+            )
+        gauge = np.eye(3)
+        gauge[:2, 2] = -np.mean(centers, axis=0)
+        rooms = [transform_room(room, gauge) for room in rooms]
+        placement = {name: gauge @ matrix for name, matrix in placement.items()}
+        alignment["gauge"] = {
+            "method": "camera-network centroid",
+            "T_before_to_canonical": gauge.tolist(),
+        }
     config = {
         "schema_version": 3,
         "units": "meters",
-        "coordinate_frame": "unregistered display atlas; metric only within each scene",
-        "physical_building_registration": False,
+        "coordinate_frame": (
+            "topology-registered building; estimated local metric geometry"
+            if registered
+            else "unregistered display atlas; metric only within each scene"
+        ),
+        "physical_building_registration": registered,
         "rooms": rooms,
-        "minimum_display_clearance_m": 0.14,
-        "source": "INDEPENDENT REAL SCENES",
+        "minimum_display_clearance_m": min(
+            c.get("minimum_display_clearance_m", 0.14) for c in configs.values()
+        ),
+        "source": (
+            "STITCHED BUILDING"
+            if registered
+            else (
+                "PARTIAL BUILDING"
+                if alignment["status"] == "partial"
+                else "INDEPENDENT REAL SCENES"
+            )
+        ),
         "scene_sources": {
-            "laboratory": "../data/manifest.json",
-            "passageway": "../data/passageway/manifest.json",
+            name: os.path.relpath(d.root / "manifest.json", output) for name, d in datasets.items()
         },
-        "alignment": {
-            "status": "unknown; separate recordings with no verified shared doorway",
-            "connections": [],
-            "shared_walls": [],
-            "display_gap_m": 3,
-            "gap_is_physical_distance": False,
-        },
-        "scene_transforms": {name: matrix.tolist() for name, matrix in placement.items()},
+        "alignment": alignment,
+        "scene_transforms": {n: m.tolist() for n, m in placement.items()},
         "projection_transforms": "transforms_refined.json",
-        "recordings_synchronized_across_scenes": False,
         "render_fused_people": True,
         "show_raw_projections": False,
         "verification_record_index": 78,
-        "id_scope": "globally unique display IDs; independent recordings, no cross-scene identity claim",
+        "id_scope": "globally unique display IDs; cross-room identity continuity is not asserted",
         "limitations": [
-            "Scene placement is a page layout, not a building layout",
-            "Wall-mount priors refine underconstrained intrinsics",
-            "Horizontal FOV follows fitted intrinsics, not forced 60-90 degrees",
-            "Passageway has an open unobserved end",
+            "Dimensions and camera intrinsics are estimated, not surveyed",
+            "Only connected topology components have an evidenced relative pose",
         ],
     }
     config.update(configure_canvas(rooms))
-    source_roots = {"laboratory": lab, "passageway": passage}
-    combined = {}
+    prefixes = {name: d.manifest.get("camera_prefix", name.upper()) for name, d in datasets.items()}
+    if len(set(prefixes.values())) != len(prefixes):
+        raise ValueError("Camera prefixes must be unique across rooms")
+    combined = None
     for filename in ["transforms.json", "transforms_refined.json"]:
         combined = {
             "schema_version": 3,
             "units": "meters",
             "coordinate_frame": config["coordinate_frame"],
-            "physical_building_registration": False,
+            "physical_building_registration": registered,
             "cameras": {},
         }
-        for name, root in source_roots.items():
-            original = json.loads((root / filename).read_text())
-            matrix = placement[name]
-            delta = np.r_[matrix[:2, 2], 0.0]
-            prefix = "LAB" if name == "laboratory" else "PASS"
+        for name, root in roots.items():
+            source = root / filename
+            if maps_only or not source.exists():
+                source = root / "transforms.json"
+            original = json.loads(source.read_text())
             for camera, entry in original["cameras"].items():
-                entry = deepcopy(entry)
-                entry["source_scene"] = name
-                entry["source_camera"] = camera
-                entry["camera_center_scene"] = entry["camera_center_world"]
-                entry["camera_center_world"] = (
-                    np.asarray(entry["camera_center_world"]) + delta
-                ).tolist()
-                entry["camera_xy_estimate"] = entry["camera_center_world"][:2]
-                entry["t_world_to_camera"] = (
-                    np.asarray(entry["t_world_to_camera"])
-                    - np.asarray(entry["R_world_to_camera"]) @ delta
-                ).tolist()
-                if "H_image_to_map_before_bundle" in entry:
-                    entry["H_image_to_map_before_bundle"] = (
-                        matrix @ np.asarray(entry["H_image_to_map_before_bundle"])
-                    ).tolist()
-                    entry["footpoint_bundle_correction"] = (
-                        matrix
-                        @ np.asarray(entry["footpoint_bundle_correction"])
-                        @ np.linalg.inv(matrix)
-                    ).tolist()
-                h = matrix @ np.asarray(entry["H_image_to_map"])
-                canvas = np.asarray(config["T_map_to_canvas"]) @ h
-                entry.update(
-                    H_image_to_map=h.tolist(),
-                    H_map_to_image=np.linalg.inv(h).tolist(),
-                    H_image_to_canvas=canvas.tolist(),
-                    H_canvas_to_image=np.linalg.inv(canvas).tolist(),
-                )
-                combined["cameras"][f"{prefix}/{camera}"] = entry
+                transformed = transform_camera(entry, placement[name], config["T_map_to_canvas"])
+                transformed.update(source_scene=name, source_camera=camera)
+                combined["cameras"][f"{prefixes[name]}/{camera}"] = transformed
         save_json(output / filename, combined)
     image = draw_floorplan(config, combined["cameras"])
     for filename in ["global_2d_map.png", "global_map.png"]:
         cv2.imwrite(str(output / filename), image)
-    for name, root in source_roots.items():
-        local = json.loads((root / "transforms_refined.json").read_text())
-        local_image = draw_floorplan(source_configs[name], local["cameras"])
-        cv2.imwrite(str(output / f"room_{name}_map.png"), local_image)
-        for filename in ["global_2d_map.png", "global_map.png"]:
-            cv2.imwrite(str(root / filename), local_image)
     save_json(output / "map_config.json", config)
+    save_json(output / "topology.json", alignment)
+    if maps_only:
+        return config
     originals = {
-        name: json.loads((root / "projections.json").read_text())
-        for name, root in source_roots.items()
+        name: json.loads((root / "projections.json").read_text()) for name, root in roots.items()
     }
-    id_offsets = {}
+    if any(not records for records in originals.values()):
+        raise ValueError("Cannot assemble empty person projections")
+    schedule, synchronized = display_schedule(originals, datasets)
+    config["recordings_synchronized_across_scenes"] = synchronized
+    config["verification_record_index"] = min(78, len(schedule) - 1)
+    offsets = {}
     offset = 0
-    for name in ["laboratory", "passageway"]:
-        id_offsets[name] = offset
+    for name in datasets:
+        offsets[name] = offset
         offset += max(
             (p["id"] for r in originals[name] for p in r.get("fused_people", [])), default=0
         )
     records = []
-    for index in range(min(map(len, originals.values()))):
+    for index, indices in enumerate(schedule):
         record = {
             "index": index,
             "source_frame": index,
-            "frame_note": "Independent recordings; frame pairing is for display only",
+            "frame_note": (
+                "Shared-clock streams aligned by source timestamps"
+                if synchronized
+                else "Independent recordings; frame pairing is for display only"
+            ),
             "detections": [],
             "fused_people": [],
-            "headcounts": {},
+            "headcounts": {name: 0 for name in datasets},
+            "camera_frame_indices": {
+                f"{prefixes[name]}/{c['id']}": indices[name]
+                for name, d in datasets.items()
+                for c in d.cameras
+            },
         }
-        for name, source_records in originals.items():
-            prefix = "LAB" if name == "laboratory" else "PASS"
-            for detection in source_records[index]["detections"]:
-                d = deepcopy(detection)
-                d["source_scene"] = name
-                d["source_camera"] = d["camera"]
+        for name, local_index in indices.items():
+            if local_index is None:
+                continue
+            source_record = originals[name][local_index]
+            prefix = prefixes[name]
+            for original in source_record["detections"]:
+                d = deepcopy(original)
+                d.update(source_scene=name, source_camera=d["camera"])
                 d["camera"] = prefix + "/" + d["camera"]
                 d["detection_id"] = prefix + ":" + d["detection_id"]
                 for key in ["associated_id", "fused_id"]:
                     if key in d:
-                        d[key] += id_offsets[name]
-                if "xy_before_bundle" in d:
-                    d["xy_before_bundle"] = project(placement[name], [d["xy_before_bundle"]])[
-                        0
-                    ].tolist()
-                d["xy"] = project(placement[name], [d["xy"]])[0].tolist()
+                        d[key] += offsets[name]
+                for key in ["xy", "xy_before_bundle"]:
+                    if key in d:
+                        d[key] = project(placement[name], [d[key]])[0].tolist()
                 record["detections"].append(d)
-            for source_person in source_records[index].get("fused_people", []):
-                person = deepcopy(source_person)
-                person["id"] += id_offsets[name]
+            for original in source_record.get("fused_people", []):
+                person = deepcopy(original)
+                person["id"] += offsets[name]
                 person["xy"] = project(placement[name], [person["xy"]])[0].tolist()
                 person["member_cameras"] = [prefix + "/" + c for c in person["member_cameras"]]
                 for key in ["member_detection_ids", "candidate_detection_ids"]:
                     person[key] = [prefix + ":" + i for i in person[key]]
                 record["fused_people"].append(person)
-            record["headcounts"].update(source_records[index].get("headcounts", {}))
+            record["headcounts"].update(source_record.get("headcounts", {}))
         records.append(record)
     save_json(output / "projections.json", records)
-    dataset = RealSceneDataset([("LAB", data_root), ("PASS", Path(data_root) / "passageway")])
-    export_verification(dataset, records, image, config, output)
-    save_json(
-        output / "verification_metrics.json",
-        {
-            "scene_count": 2,
-            "camera_count": 8,
-            "paired_display_frames": len(records),
-            "physical_building_registration": False,
-            "detections": sum(len(r["detections"]) for r in records),
-            "displayed_inside_with_clearance": sum(
-                d["display_accepted"] for r in records for d in r["detections"]
-            ),
-            "fused_person_observations": sum(len(r["fused_people"]) for r in records),
-            "inspected_record_index": min(78, len(records) - 1),
-            "inspected_headcounts": records[min(78, len(records) - 1)]["headcounts"],
-            "inspected_global_ids": [
-                p["id"] for p in records[min(78, len(records) - 1)]["fused_people"]
-            ],
-            "per_scene": {
-                name: json.loads((root / "verification_metrics.json").read_text())
-                for name, root in source_roots.items()
-            },
+    save_json(output / "map_config.json", config)
+    source_data = RealSceneDataset([(prefixes[name], d) for name, d in datasets.items()])
+    export_verification(source_data, records, image, config, output)
+    selected = records[config["verification_record_index"]]
+    metrics = {
+        "scene_count": len(datasets),
+        "camera_count": len(combined["cameras"]),
+        "paired_display_frames": len(records),
+        "physical_building_registration": registered,
+        "layout_status": alignment["status"],
+        "detections": sum(len(r["detections"]) for r in records),
+        "displayed_inside_with_clearance": sum(
+            d["display_accepted"] for r in records for d in r["detections"]
+        ),
+        "fused_person_observations": sum(len(r["fused_people"]) for r in records),
+        "inspected_record_index": selected["index"],
+        "inspected_headcounts": selected["headcounts"],
+        "inspected_global_ids": [p["id"] for p in selected["fused_people"]],
+        "per_scene": {
+            name: json.loads((root / "verification_metrics.json").read_text())
+            for name, root in roots.items()
         },
-    )
+    }
+    save_json(output / "verification_metrics.json", metrics)
     save_json(
         output / "projection_optimization.json",
         {
             "per_scene": {
                 name: json.loads((root / "projection_optimization.json").read_text())
-                for name, root in source_roots.items()
+                for name, root in roots.items()
             }
         },
     )
     print(
-        "Rendered two real scenes, eight real cameras. Shared-doorway registration: UNKNOWN.",
+        f"Rendered {len(datasets)} manifest rooms, {len(combined['cameras'])} cameras; layout={alignment['status']}; links={len(alignment['connections'])}",
         flush=True,
     )
+    return config
 
 
-def build_global(output, data_root=Path("data")):
-    output = Path(output)
-    lab = output / "laboratory"
-    passage = output / "passageway"
-    if not (lab / "projections.json").exists():
-        raise FileNotFoundError("Build and project the Laboratory scene first")
-    assemble(output, lab, passage, data_root)
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
-    args = parser.parse_args()
-    build_global(args.output_dir)
-
-
-if __name__ == "__main__":
-    main()
+def build_global(
+    output, data_root=Path("data"), layout="stitched", topology_path=None, maps_only=False
+):
+    datasets = discover_rooms(data_root)
+    return assemble(output, datasets, layout, topology_path, maps_only)

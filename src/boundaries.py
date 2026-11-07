@@ -77,7 +77,7 @@ def ransac_lines(points, threshold=0.09, min_support=35, min_span=0.65, seed=7):
 def fit_boundary_room(observations, room_id, camera_centers, allow_open_ends=False):
     xy = np.array([o["xy"] for o in observations])
     lines = ransac_lines(xy)
-    if len(lines) < 4:
+    if len(lines) < (2 if allow_open_ends else 4):
         raise ValueError("Insufficient independent floor-wall boundary lines")
     weights = np.array([l["support"] * min(l["span"], 4) for l in lines])
     angles = np.arctan2(*np.array([l["normal"] for l in lines])[:, ::-1].T)
@@ -149,6 +149,8 @@ def fit_boundary_room(observations, room_id, camera_centers, allow_open_ends=Fal
         bounds.append(winner["position"])
         evidence.append(dict(winner, side=side))
     xmin, xmax, ymin, ymax = bounds
+    if xmax - xmin <= 0.2 or ymax - ymin <= 0.2:
+        raise ValueError("Insufficient supported extent to form a room domain")
     center = np.array([(xmin + xmax) / 2, (ymin + ymax) / 2])
     matrix = np.eye(3)
     matrix[:2, :2] = rotation
@@ -281,3 +283,42 @@ def view_polygon(center, direction, hfov, room_polygon):
     if len(vertices) < 3:
         raise ValueError("Camera rays do not intersect the observed room")
     return np.asarray(vertices)
+
+
+def floor_rectification(image, depth, labels, source_h, intrinsics=None):
+    """Estimate a metric ground gauge from an actual depth-fitted floor and source H."""
+    from .structure import fit_plane
+
+    height, width = depth.shape
+    k = np.asarray(
+        (
+            intrinsics
+            if intrinsics is not None
+            else [[0.9 * width, 0, width / 2], [0, 0.9 * width, height / 2], [0, 0, 1.0]]
+        ),
+        float,
+    )
+    yy, xx = np.mgrid[:height, :width]
+    rays = np.stack([xx, yy, np.ones_like(xx)], -1) @ np.linalg.inv(k).T
+    mask = np.isin(labels, [3, 28])
+    mask[: height // 2] = False
+    mask &= np.isfinite(depth) & (depth > 0)
+    n, d, inliers = fit_plane((rays[mask] * depth[mask, None])[::3], threshold=0.10)
+    if n[1] > 0:
+        n, d = -n, -d
+    forward = np.array([0.0, 0.0, 1.0])
+    forward -= n * (forward @ n)
+    if np.linalg.norm(forward) < 1e-6:
+        forward = np.array([0.0, 1.0, 0.0])
+        forward -= n * (forward @ n)
+    forward /= np.linalg.norm(forward)
+    right = np.cross(forward, n)
+    right /= np.linalg.norm(right)
+    h = np.vstack([-d * right, d * forward, n]) @ np.linalg.inv(k)
+    return {
+        "T_published_to_depth_metric": (h @ np.linalg.inv(source_h)).tolist(),
+        "estimated_K": k.tolist(),
+        "floor_plane_camera": [*n.tolist(), float(d)],
+        "floor_inlier_ratio": float(inliers.mean()),
+        "status": "depth-fitted ground rectification; estimated anchor intrinsics unless supplied; not surveyed",
+    }

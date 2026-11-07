@@ -218,7 +218,11 @@ def reconstruct(dataset, transforms, output):
             round(scale, 5),
             flush=True,
         )
-    meters_per_unit = float(np.median([v["scale"] for v in views]))
+    meters_per_unit = (
+        1.0
+        if dataset.manifest.get("coordinate_units") == "meters"
+        else float(np.median([v["scale"] for v in views]))
+    )
     point_sets = []
     wall_sets = []
     planes = []

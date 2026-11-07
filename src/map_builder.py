@@ -2,6 +2,8 @@
 
 from typing import Protocol
 from pathlib import Path
+import json
+import hashlib
 import cv2
 import numpy as np
 from .geometry import project, save_json
@@ -47,20 +49,42 @@ def draw_floorplan(config, cameras=None):
         else "ARCHITECTURAL FLOOR PLAN"
     )
     cv2.putText(image, title, (35, 38), 0, 0.75, ink, 2, cv2.LINE_AA)
+    if config.get("alignment", {}).get("status") == "stitched":
+        title = "UNIFIED BUILDING FLOOR PLAN"
+        image[:50] = (249, 248, 244)
+        cv2.putText(image, title, (35, 38), 0, 0.75, ink, 2, cv2.LINE_AA)
+    if config.get("alignment", {}).get("status") == "partial":
+        image[:50] = (249, 248, 244)
+        cv2.putText(image, "PARTIALLY CONNECTED FLOOR PLAN", (35, 38), 0, 0.7, ink, 2, cv2.LINE_AA)
     synthetic = config.get("source", "").startswith("SYNTHETIC")
     subtitle = (
-        "Synthetic stitching test | rectangle + L-shaped room"
+        config.get("subtitle", "Synthetic topology regression fixture")
         if synthetic
         else "Manhattan walls | dimensions estimated from metric depth"
     )
     if config.get("source") == "INDEPENDENT REAL SCENES":
-        subtitle = "LABORATORY + PASSAGEWAY | relative building placement / shared doorway UNKNOWN"
+        subtitle = (
+            " + ".join(r["id"].upper() for r in config["rooms"])
+            + " | placement / shared doorway UNKNOWN"
+        )
     cv2.putText(image, subtitle, (35, 65), 0, 0.42, (115, 110, 95), 1, cv2.LINE_AA)
     floor_mask = np.zeros((height, width), np.uint8)
     for i, room in enumerate(config["rooms"]):
         polygon = np.rint(project(matrix, room["polygon"])).astype("int32")
         cv2.fillPoly(image, [polygon], [(237, 231, 216), (225, 237, 229), (238, 226, 235)][i % 3])
         cv2.fillPoly(floor_mask, [polygon], 255)
+    for link in config.get("alignment", {}).get("connections", []):
+        if link.get("gap_m", 0) <= 0:
+            continue
+        a = next(r for r in config["rooms"] if r["id"] == link["room_a"])
+        b = next(r for r in config["rooms"] if r["id"] == link["room_b"])
+        da = next(d for d in a["doors"] if d["id"] == link["door_a"])
+        db = next(d for d in b["doors"] if d["id"] == link["door_b"])
+        connector = np.int32(project(matrix, [da["start"], da["end"], db["start"], db["end"]]))
+        cv2.fillPoly(image, [connector], (237, 231, 216))
+        for first, second in [(da["start"], db["end"]), (da["end"], db["start"])]:
+            line = np.int32(project(matrix, [first, second]))
+            cv2.line(image, tuple(line[0]), tuple(line[1]), ink, 8, cv2.LINE_AA)
     if cameras:
         for i, (name, entry) in enumerate(cameras.items()):
             center = np.asarray(entry["camera_xy_estimate"])
@@ -106,7 +130,9 @@ def draw_floorplan(config, cameras=None):
                 cv2.LINE_AA,
             )
     door_labels = {
-        d["id"]: f"D{i+1:02d}" for i, d in enumerate(d for r in config["rooms"] for d in r["doors"])
+        (r["id"], d["id"]): d["id"] if d["id"].startswith("D") else f"D{i+1:02d}"
+        for r in config["rooms"]
+        for i, d in enumerate(r["doors"])
     }
     for room in config["rooms"]:
         doors = {d["id"]: d for d in room["doors"]}
@@ -175,7 +201,7 @@ def draw_floorplan(config, cameras=None):
                 ].astype(int)
                 cv2.putText(
                     image,
-                    door_labels[door_id] + ("" if door.get("confirmed") else "*"),
+                    door_labels[(room["id"], door_id)] + ("" if door.get("confirmed") else "*"),
                     tuple(center),
                     0,
                     0.38,
@@ -242,7 +268,11 @@ def draw_floorplan(config, cameras=None):
     cv2.putText(image, "1 m (estimated)", (x, y + 22), 0, 0.4, ink, 1, cv2.LINE_AA)
     cv2.putText(
         image,
-        "Walls: observed image seams | camera poses: wall-mount prior | dimensions estimated",
+        (
+            "SYNTHETIC geometry | declared doorway adjacency | no real reconstruction data"
+            if synthetic
+            else "Walls: observed image seams | camera poses: wall-mount prior | dimensions estimated"
+        ),
         (35, height - 15),
         0,
         0.36,
@@ -274,7 +304,7 @@ class ArchitecturalMapBuilder:
             observations,
             dataset.manifest["room_id"],
             [report["cameras"][c["id"]]["camera_xy_m"] for c in dataset.cameras],
-            allow_open_ends=dataset.manifest["room_id"] == "passageway",
+            allow_open_ends=dataset.manifest.get("allow_open_ends", True),
         )
         source_to_arch = metric_to_arch @ source_to_metric
         transforms["source_units"] = transforms["units"]
@@ -311,7 +341,9 @@ class ArchitecturalMapBuilder:
                     "wall_clearance_m": pose["wall_clearance_m"],
                 }
             )
-        room["doors"] = []
+        from .topology import declared_doors
+
+        declared_doors(room, dataset.manifest.get("doors", []))
         save_json(self.output / "structure/image_boundary_fit.json", boundary_report)
         save_json(self.output / "structure/camera_mount_verification.json", mount_report)
         config = {
@@ -329,7 +361,7 @@ class ArchitecturalMapBuilder:
                 "status": "single_room",
                 "topological_links": [],
                 "entry_exit_zones": [],
-                "inter_room_alignment": "Implemented via explicit door constraints; no second room in this dataset",
+                "inter_room_alignment": "Core trajectory matching followed by declarative topology fallback",
             },
             "limitations": [
                 "Intrinsics and metric scale are estimated, not surveyed",
@@ -360,3 +392,66 @@ class ArchitecturalMapBuilder:
             "Image-boundary floorplan", room["polygon"], "cameras checked with C=-R.T@t", flush=True
         )
         return image, support, config
+
+
+def prepare_ground_rectification(dataset, output, force=False):
+    """Load a declared rectification or automatically rectify inconsistent ground gauges."""
+    from .calibrator import EPFLCalibrator, source_homographies
+    from .structure import camera_from_homography, MetricDepthBackend
+    from .semantics import SemanticBackend
+    from .boundaries import floor_rectification
+
+    declared = dataset.manifest.get("plane_rectification_file")
+    if declared and (dataset.root / declared).exists() and not force:
+        return EPFLCalibrator().calibrate(dataset)
+    if declared and not (dataset.root / declared).exists():
+        dataset.manifest.pop("plane_rectification_file")
+    provisional = EPFLCalibrator().calibrate(dataset)
+    mode = dataset.manifest.get("rectification", "auto")
+    incompatible = force or mode == "depth"
+    if mode == "auto":
+        for camera in dataset.cameras:
+            try:
+                *_, error = camera_from_homography(
+                    provisional["cameras"][camera["id"]], camera["width"], camera["height"]
+                )
+                if error > dataset.manifest.get("rectification_error_threshold", 0.001):
+                    incompatible = True
+                    break
+            except ValueError:
+                incompatible = True
+                break
+    if not incompatible:
+        return provisional
+    folder = Path(output) / "structure"
+    folder.mkdir(parents=True, exist_ok=True)
+    camera = next(
+        (c for c in dataset.cameras if c["id"] == dataset.manifest.get("rectification_anchor")),
+        dataset.cameras[0],
+    )
+    image = dataset.frame(camera, 0)
+    source = source_homographies(dataset)[camera["id"]]
+    if dataset.manifest.get("map_y_axis", "down") == "up":
+        source = np.diag([1.0, -1.0, 1.0]) @ source
+    # The input gauge, anchor intrinsics and pinned structural-model provenance
+    # all affect a rectification, independently of the room name.
+    provenance = Path(__file__).resolve().parents[1] / "models/structural_sources.json"
+    model_source = provenance.read_bytes() if provenance.exists() else b""
+    fingerprint = hashlib.sha256(
+        image.tobytes() + source.tobytes() + json.dumps(camera.get("K")).encode() + model_source
+    ).hexdigest()
+    path = folder / "ground_rectification.json"
+    if (
+        path.exists()
+        and json.loads(path.read_text()).get("input_sha256") == fingerprint
+        and not force
+    ):
+        result = json.loads(path.read_text())
+    else:
+        depth = MetricDepthBackend(folder).infer(image, camera["id"])
+        labels = SemanticBackend(folder).infer(image, camera["id"])
+        result = floor_rectification(image, depth, labels, source, camera.get("K"))
+        result.update(source_camera=camera["id"], input_sha256=fingerprint)
+        save_json(path, result)
+    dataset.manifest["plane_rectification_file"] = str(path.resolve())
+    return EPFLCalibrator().calibrate(dataset)

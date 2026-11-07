@@ -9,21 +9,33 @@ from src.person_locator import MultiScalePoseLocator
 from src.geometry import project, save_json
 
 
-def collect(data_dir, output, weights, scales, device="cpu", frame_count=100):
-    import torch
-
-    torch.set_num_threads(2)
-    dataset = EPFLDataset(data_dir)
-    output = Path(output)
-    transforms = json.loads((output / "transforms.json").read_text())
-    metadata = {
+def observation_metadata(dataset, weights, scales, frame_count):
+    return {
         "weights_sha256": hashlib.sha256(Path(weights).read_bytes()).hexdigest(),
         "scales": scales,
         "confidence": 0.25,
         "appearance_model": "resnet18",
+        "appearance_weights_sha256": hashlib.sha256(
+            (Path(__file__).resolve().parents[1] / "models/resnet18-f37072fd.pth").read_bytes()
+        ).hexdigest(),
+        "source_frame_hashes": [
+            dataset.observation_fingerprint(c, frame_count) for c in dataset.cameras
+        ],
         "frames": frame_count,
         "source_starts": [c["verification_start_frame"] for c in dataset.cameras],
+        "room_id": dataset.manifest["room_id"],
+        "cameras": [c["id"] for c in dataset.cameras],
     }
+
+
+def collect(data_dir, output, weights, scales, device="cpu", frame_count=100):
+    import torch
+
+    torch.set_num_threads(2)
+    dataset = data_dir if isinstance(data_dir, EPFLDataset) else EPFLDataset(data_dir)
+    output = Path(output)
+    transforms = json.loads((output / "transforms.json").read_text())
+    metadata = observation_metadata(dataset, weights, scales, frame_count)
     path = output / "pose_observations.json"
     meta = output / "pose_observations_source.json"
     if path.exists() and meta.exists() and json.loads(meta.read_text()) == metadata:
@@ -34,6 +46,8 @@ def collect(data_dir, output, weights, scales, device="cpu", frame_count=100):
         record = {
             "index": index,
             "source_frame": dataset.cameras[0]["verification_start_frame"] + index,
+            "time_seconds": (dataset.cameras[0]["verification_start_frame"] + index)
+            / dataset.cameras[0]["fps"],
             "detections": [],
         }
         for camera in dataset.cameras:
@@ -65,17 +79,26 @@ def collect(data_dir, output, weights, scales, device="cpu", frame_count=100):
 
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--scene", choices=["laboratory", "passageway"], required=True)
-    p.add_argument("--device", default="cpu")
-    a = p.parse_args()
-    collect(
-        "data" if a.scene == "laboratory" else "data/passageway",
-        f"outputs/{a.scene}",
-        "models/yolo11n-pose.pt",
-        [384, 960] if a.scene == "laboratory" else [1280],
-        a.device,
-    )
+    from .dataset_loader import discover_rooms
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, default=Path("data"))
+    parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
+    parser.add_argument("--room")
+    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--frames", type=int, default=100)
+    args = parser.parse_args()
+    for dataset in discover_rooms(args.data_dir):
+        if args.room and dataset.manifest["room_id"] != args.room:
+            continue
+        collect(
+            dataset,
+            args.output_dir / dataset.manifest["room_id"],
+            Path("models/yolo11n-pose.pt"),
+            dataset.manifest.get("pose_scales", [1280]),
+            args.device,
+            args.frames,
+        )
 
 
 if __name__ == "__main__":

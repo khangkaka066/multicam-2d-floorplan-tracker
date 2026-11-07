@@ -101,6 +101,8 @@ def main():
         "calibration_image_size": [360, 288],
         "coordinate_units": "EPFL top-view units (not validated meters)",
         "room_id": "laboratory",
+        "pose_scales": [384, 960],
+        "camera_prefix": "LAB",
         "synchronized": True,
         "first_source_frame": 0,
         "cameras": [],

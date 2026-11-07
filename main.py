@@ -4,14 +4,12 @@ import json
 import os
 from pathlib import Path
 import cv2
-from src.dataset_loader import EPFLDataset
-from src.calibrator import EPFLCalibrator
-from src.map_builder import ArchitecturalMapBuilder
+from src.map_builder import ArchitecturalMapBuilder, prepare_ground_rectification
 from src.geometry import save_json
 
 
 def build(dataset, output):
-    transforms = EPFLCalibrator().calibrate(dataset)
+    transforms = prepare_ground_rectification(dataset, output)
     image, texture, config = ArchitecturalMapBuilder(output).build(dataset, transforms)
     for name, img in [
         ("global_2d_map.png", image),
@@ -39,9 +37,10 @@ def run_projection(dataset, output, weights, frame_count, device, imgsz=None, sh
     from src.bev_visualizer import export_verification
     from src.map_builder import draw_floorplan
 
-    room_id = dataset.manifest["room_id"]
-    scales = [384, imgsz or 960] if room_id == "laboratory" else [imgsz or 1280]
-    collect(dataset.root, output, weights, scales, device, frame_count=frame_count)
+    scales = dataset.manifest.get("pose_scales", [1280])
+    if imgsz:
+        scales = list(dict.fromkeys([*scales[:-1], imgsz]))
+    collect(dataset, output, weights, scales, device, frame_count=frame_count)
     records = process(output)
     config = json.loads((output / "map_config.json").read_text())
     config["show_raw_projections"] = show_raw
@@ -56,85 +55,42 @@ def run_projection(dataset, output, weights, frame_count, device, imgsz=None, sh
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Calibrated EPFL multi-camera BEV prototype")
+    from src.dataset_loader import discover_rooms
+    from src.scene_atlas import assemble
+    from src.topology import analyze_scene
+
+    root = Path(__file__).resolve().parent
+    parser = argparse.ArgumentParser(
+        description="Manifest-based multi-room floorplans, topology and BEV fusion"
+    )
     parser.add_argument(
         "--mode",
         default="all",
         choices=["all", "build-map", "calibrate", "project", "stitch", "build-global"],
-        help="Default: reconstruct, calibrate, project both prepared EPFL scenes and render the atlas",
     )
-    parser.add_argument("--data-dir", type=Path, default=Path(__file__).resolve().parent / "data")
+    parser.add_argument("--data-dir", type=Path, default=root / "data")
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--room", help="Process only this room ID")
     parser.add_argument(
-        "--output-dir",
-        type=Path,
-        help="Default: outputs/ for all/global; outputs/<room>/ for a single scene",
+        "--layout",
+        choices=["stitched", "atlas"],
+        default="stitched",
+        help="Default: transition/config doorway snapping, then atlas fallback",
     )
-    parser.add_argument(
-        "--weights", type=Path, default=Path(__file__).resolve().parent / "models/yolo11n-pose.pt"
-    )
+    parser.add_argument("--topology", type=Path, help="Default: configs/topology.json if present")
+    parser.add_argument("--weights", type=Path, default=root / "models/yolo11n-pose.pt")
     parser.add_argument("--frames", type=int, default=100)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--imgsz", type=int)
+    parser.add_argument("--show-raw", action="store_true")
     parser.add_argument(
-        "--imgsz",
-        type=int,
-        help="High-resolution pose pass (960 Laboratory / 1280 Passageway by default)",
-    )
-    parser.add_argument(
-        "--show-raw",
-        action="store_true",
-        help="Show faint raw observations and tethers behind fused people",
-    )
-    parser.add_argument(
-        "--building",
-        type=Path,
-        help="Extracted room geometry and explicit door correspondences for stitch mode",
+        "--building", type=Path, help="Legacy explicit room/door geometry for stitch mode"
     )
     args = parser.parse_args()
-    if not 1 <= args.frames <= 100:
-        parser.error("--frames must be 1..100 for this sample")
-    if args.output_dir is None:
-        args.output_dir = Path(__file__).resolve().parent / "outputs"
-        if args.mode in ["build-map", "calibrate", "project"]:
-            manifest = args.data_dir / "manifest.json"
-            if not manifest.exists():
-                parser.error("Dataset missing: run python scripts/download_sample_data.py first")
-            args.output_dir /= json.loads(manifest.read_text())["room_id"]
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    yolo_config = args.output_dir.resolve() / "yolo_config"
-    yolo_config.mkdir(exist_ok=True)
-    os.environ.setdefault("YOLO_CONFIG_DIR", str(yolo_config))
-    if args.mode == "all":
-        from scripts.analyze_entries import main as analyze_entries
-        from src.scene_atlas import build_global
-        import torch
-
-        torch.set_num_threads(2)
-        for root in [args.data_dir, args.data_dir / "passageway"]:
-            if not (root / "manifest.json").exists():
-                parser.error(
-                    "Prepare both scenes with the download scripts documented in README.md"
-                )
-        if not (args.data_dir / "passageway/metric_rectification.json").exists():
-            parser.error("Run python scripts/rectify_passageway.py before the two-scene pipeline")
-        for root in [args.data_dir, args.data_dir / "passageway"]:
-            dataset = EPFLDataset(root)
-            output = args.output_dir / dataset.manifest["room_id"]
-            output.mkdir(parents=True, exist_ok=True)
-            build(dataset, output)
-            if dataset.manifest["room_id"] == "laboratory":
-                analyze_entries(
-                    ["--output-dir", str(output), "--data-dir", str(root), "--device", args.device]
-                )
-            run_projection(
-                dataset, output, args.weights, args.frames, args.device, args.imgsz, args.show_raw
-            )
-        build_global(args.output_dir, args.data_dir)
-        return
-    if args.mode == "build-global":
-        from src.scene_atlas import build_global
-
-        build_global(args.output_dir, args.data_dir)
-        return
+    if args.frames < 1:
+        parser.error("--frames must be positive")
+    if args.topology is None and (root / "configs/topology.json").exists():
+        args.topology = root / "configs/topology.json"
     if args.mode == "stitch":
         if args.building is None:
             parser.error("--building is required for stitch")
@@ -143,33 +99,75 @@ def main():
 
         building = json.loads(args.building.read_text())
         rooms, alignment = stitch_rooms(building["rooms"], building["connections"])
-        config = {
-            "schema_version": 2,
-            "units": "meters",
-            "rooms": rooms,
-            "alignment": alignment,
-            "source": building.get("source", "explicit room/door constraints"),
-        }
+        config = dict(
+            schema_version=2,
+            units="meters",
+            rooms=rooms,
+            alignment=alignment,
+            source=building.get("source", "explicit room/door constraints"),
+        )
         config.update(configure_canvas(rooms))
-        image = draw_floorplan(config)
-        cv2.imwrite(str(args.output_dir / "global_2d_map.png"), image)
-        save_json(args.output_dir / "map_config.json", config)
-        print(json.dumps(alignment, indent=2))
+        output = args.output_dir or root / "outputs"
+        output.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(output / "global_2d_map.png"), draw_floorplan(config))
+        save_json(output / "map_config.json", config)
         return
-    dataset = EPFLDataset(args.data_dir)
-    if args.mode in ["build-map", "calibrate"]:
-        build(dataset, args.output_dir)
-    else:
-        if not (args.output_dir / "transforms.json").exists():
-            parser.error("Run --mode build-map (or calibrate) for this scene before project")
-        run_projection(
-            dataset,
-            args.output_dir,
-            args.weights,
-            args.frames,
-            args.device,
-            args.imgsz,
-            args.show_raw,
+    datasets = discover_rooms(args.data_dir)
+    if args.room:
+        datasets = [d for d in datasets if d.manifest["room_id"] == args.room]
+    if not datasets:
+        parser.error("No matching room manifest")
+    output = args.output_dir or root / "outputs"
+    output.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("YOLO_CONFIG_DIR", str(output.resolve() / "yolo_config"))
+    if args.mode == "build-global":
+        assemble(output, datasets, args.layout, args.topology)
+        return
+    import torch
+
+    torch.set_num_threads(2)
+    for dataset in datasets:
+        name = dataset.manifest["room_id"]
+        local = output / name if len(datasets) > 1 or args.output_dir is None else output
+        local.mkdir(parents=True, exist_ok=True)
+        frame_count = min(
+            args.frames, min(c.get("verification_frames", c["frames"]) for c in dataset.cameras)
+        )
+        if args.mode in ["all", "build-map", "calibrate"]:
+            build(dataset, local)
+        if args.mode in ["all", "project"]:
+            if not (local / "transforms.json").exists():
+                parser.error(f"Build room {name} before projecting")
+            run_projection(
+                dataset, local, args.weights, frame_count, args.device, args.imgsz, args.show_raw
+            )
+        analyze_scene(dataset, local, args.weights, args.device, frame_count)
+        from src.map_builder import draw_floorplan
+
+        config = json.loads((local / "map_config.json").read_text())
+        filename = (
+            "transforms_refined.json" if args.mode in ["all", "project"] else "transforms.json"
+        )
+        transforms = json.loads((local / filename).read_text())
+        local_image = draw_floorplan(config, transforms["cameras"])
+        cv2.imwrite(str(local / "global_2d_map.png"), local_image)
+        if len(datasets) == 1 and args.mode in ["all", "project"]:
+            from src.bev_visualizer import export_verification
+
+            export_verification(
+                dataset,
+                json.loads((local / "projections.json").read_text()),
+                local_image,
+                config,
+                local,
+            )
+    if len(datasets) > 1:
+        assemble(
+            output,
+            datasets,
+            args.layout,
+            args.topology,
+            maps_only=args.mode in ["build-map", "calibrate"],
         )
 
 

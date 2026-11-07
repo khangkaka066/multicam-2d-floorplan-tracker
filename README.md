@@ -17,20 +17,26 @@
 
 *Straight wall boundaries, estimated camera positions, wall-reaching FOV cones and a trajectory-supported doorway candidate. Laboratory and Passageway are independent recordings: the canvas is an unregistered display atlas, not a recovered physical connection between them.*
 
-A working research prototype, tested on **2 scenes / 8 cameras / 100 verification frames per camera**. It combines metric depth and image floor–wall seams with published EPFL ground-plane calibration, pose estimation, joint homography refinement and person fusion. It does not yet provide calibration-free reconstruction of arbitrary rooms or a production live-stream service.
+![Synthetic three-room topology stitching example](assets/topology_stitching_demo.png)
+
+*Synthetic regression example: three rooms connected through declared doorways, including a 90° rotation and a 0.2 m connector. This is a topology demonstration, separate from the real EPFL scenes above. Reproduce with `python scripts/render_topology_example.py`.*
+
+A working research prototype with synthetic multi-room topology tests and real-data verification on **2 scenes / 8 cameras / 100 verification frames per camera**. It combines metric depth and image floor–wall seams with published EPFL ground-plane calibration, pose estimation, joint homography refinement and person fusion. It does not yet provide calibration-free reconstruction of arbitrary rooms or a production live-stream service.
 
 ## System architecture
 
 ```mermaid
 flowchart TD
     subgraph Offline["Stage 1 · Offline floorplan and calibration"]
-        A["Synchronized keyframes + published EPFL calibration"] --> B["Metric depth + floor/wall segmentation"]
+        A["Room keyframes + calibration adapters"] --> B["Metric depth + floor/wall segmentation"]
         B --> C["RANSAC planes + image boundary projection"]
         C --> D["Manhattan walls, corners and local camera poses"]
         D --> E["Multi-frame footpoint bundle adjustment"]
         E --> F["Floorplan + map_config.json + homographies"]
         D --> G["Trajectory entry/exit clustering"]
-        G --> F
+        G --> T["Transition time + appearance matching"]
+        T --> U["Topology config fallback + rigid doorway snapping"]
+        U --> F
     end
     subgraph Online["Stage 2 · Per-frame projection and fusion"]
         H["Camera frames"] --> I["YOLO11 pose + appearance features"]
@@ -52,7 +58,7 @@ The second stage currently runs over recorded clips. Its structure supports per-
 - **Cross-camera footpoint bundle adjustment.** Hungarian associations combine spatial proximity, appearance and ordering. Joint nonlinear optimization refines an eight-parameter projective correction for each camera using reliable multi-frame ankles, room boundaries and geometry priors. Interleaved validation frames, including displayed index 78, are excluded from fitting.
 - **Distance and grazing-angle weighted fusion.** Weights begin with ankle confidence divided by squared 3D camera distance. Projection-Jacobian conditioning and truncation/confidence penalties reduce unstable far-view contributions. Every accepted pair in a fused group must lie within 0.35 m; at most one observation per camera can contribute.
 - **One identity, one marker.** Persistent IDs and room headcounts replace raw camera-dot counts. Confirmed tracks may coast through at most 5 frames of occlusion; predicted records are flagged and rendered with an asterisk. Optional faint points/tethers expose the underlying observations.
-- **Explicit room connectivity.** The stitcher supports supplied shared-door constraints and 2D rigid transforms. It refuses to invent a physical connection between independent scenes.
+- **Two-tier room topology.** Shared-clock trajectory exits/entries are matched by appearance and travel-time windows. Declarative `configs/topology.json` links supply missing adjacency. Orthogonal rigid transforms align doorways and walls; disconnected components fall back to an atlas. [Import and topology guide](docs/multi_room.md).
 
 ## Quickstart
 
@@ -79,7 +85,6 @@ python scripts/download_sample_data.py
 python scripts/download_additional_scenes.py
 python scripts/download_person_models.py
 python scripts/download_structural_models.py
-python scripts/rectify_passageway.py
 python scripts/download_passageway_verification.py
 ```
 
@@ -91,24 +96,27 @@ Structural model downloads total several hundred MB. Data utilities request boun
 python main.py
 ```
 
-The default `all` mode reconstructs/calibrates Laboratory and Passageway, derives Laboratory entry/exit candidates, acquires poses, refines homographies, fuses people and exports the two-scene atlas to `outputs/`.
+The default `all` mode discovers every room manifest under `data/`, reconstructs/calibrates each room, acquires poses, refines homographies, analyzes entry/exit zones, and assembles the result to `outputs/`. Ground rectification runs inside the core build step. `--layout stitched` first uses observed transitions, then `configs/topology.json`; independent recordings without links fall back to an atlas.
 
 Or run individual stages for one scene:
 
 ```bash
-python main.py --mode build-map --data-dir data --output-dir outputs/laboratory
-python scripts/analyze_entries.py --output-dir outputs/laboratory
+python main.py --mode build-map --data-dir data --room laboratory --output-dir outputs/laboratory
 python main.py --mode calibrate --data-dir data/passageway --output-dir outputs/passageway
-python main.py --mode project --data-dir data --output-dir outputs/laboratory
+python main.py --mode project --data-dir data --room laboratory --output-dir outputs/laboratory
 python main.py --mode project --data-dir data/passageway --output-dir outputs/passageway
 python main.py --mode build-global
 ```
 
-`build-map` and `calibrate` currently share the structural reconstruction/calibration step. Rebuilding a map resets its doorway candidates; run entry analysis again when needed. Both scenes must have local projection outputs before `build-global`.
+`build-map` and `calibrate` share structural reconstruction/calibration and now include entry analysis plus multi-room assembly. New datasets use manifests with camera/image/video paths and image-to-ground calibration. See [multi-room imports, timing and declared doorways](docs/multi_room.md). `build-global` assembles existing local projections without rerunning models.
 
 | Option | Meaning |
 |---|---|
-| `--frames 100` | Number of sample verification frames, 1–100 |
+| `--frames 100` | Number of verification frames (bounded by available camera frames) |
+| `--room office` | Select one discovered room |
+| `--layout stitched` | Infer/configure doorway links, with atlas fallback |
+| `--layout atlas` | Force a display atlas |
+| `--topology configs/topology.json` | Explicit adjacency and transition thresholds |
 | `--device cpu` | Pose device; CPU is the validated default |
 | `--imgsz 1280` | Override the high-resolution pose pass |
 | `--show-raw` | Add faint local raw points and fusion tethers |
@@ -134,6 +142,8 @@ assets/                       Final tracked showcase images and small JSON snaps
 docs/
   2dmap.md                    Original architecture and mathematical design reference
   validation.md               Implementation details and validation limits
+  multi_room.md               Dataset manifests, clocks and two-tier topology
+configs/                      Default and example doorway adjacency JSON
   THIRD_PARTY.md              Dataset/model sources and attribution
 scripts/                      Dataset/model setup, doorway analysis and validation
 src/
@@ -149,7 +159,8 @@ src/
   fusion.py, appearance.py   Association, weighting, tracking and crop features
   observations.py            Cacheable pose acquisition
   projection_pipeline.py     Refinement/fusion orchestration
-  scene_atlas.py             Independent-scene canvas composition
+  scene_atlas.py             Topology-aware building/atlas composition
+  topology.py                Doorway detection and cross-room transitions
   geometry.py                Projection and JSON utilities
 tests/                        Geometry, architecture and fusion regressions
 outputs/                      Ignored runtime outputs; generated by main.py

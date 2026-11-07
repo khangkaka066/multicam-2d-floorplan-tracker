@@ -89,10 +89,12 @@ def process(output):
 
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--scene", choices=["laboratory", "passageway"], required=True)
-    a = p.parse_args()
-    process(Path("outputs") / a.scene)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir", type=Path, required=True, help="Local room output directory"
+    )
+    args = parser.parse_args()
+    process(args.output_dir)
 
 
 if __name__ == "__main__":

@@ -13,15 +13,24 @@ class PanelVisualizer:
     def render(self, dataset, record, map_image, config):
         bev = map_image.copy()
         panels = []
+        panel_size = None
         matrix = config["T_map_to_canvas"]
         skipped = 0
         for index, camera in enumerate(dataset.cameras):
-            frame = dataset.frame(camera, record["index"], verification=True)
+            frame_index = record.get("camera_frame_indices", {}).get(camera["id"], record["index"])
+            frame = (
+                dataset.frame(camera, frame_index, verification=True)
+                if frame_index is not None
+                else np.full((camera["height"], camera["width"], 3), 230, np.uint8)
+            )
             cv2.rectangle(frame, (0, 0), (frame.shape[1], 24), (240, 240, 240), -1)
             source_frame = (
-                camera["verification_start_frame"] + record["index"]
-                if "verification_start_frame" in camera
-                else record["source_frame"]
+                "unavailable"
+                if frame_index is None
+                else camera.get(
+                    "verification_start_frame", record["source_frame"] - record["index"]
+                )
+                + frame_index
             )
             cv2.putText(
                 frame, f"{camera['id']} | frame {source_frame}", (5, 17), 0, 0.43, (30, 30, 30), 1
@@ -67,7 +76,10 @@ class PanelVisualizer:
                         end = tuple(np.int32(project(matrix, [person["xy"]])[0]))
                         cv2.line(overlay, point, end, color, 1, cv2.LINE_AA)
                     bev = cv2.addWeighted(bev, 0.75, overlay, 0.25, 0)
-            panels.append(frame)
+            if panel_size is None:
+                width = min(360, frame.shape[1])
+                panel_size = (width, max(1, int(frame.shape[0] * width / frame.shape[1])))
+            panels.append(cv2.resize(frame, panel_size))
         if config.get("render_fused_people"):
             for person in record.get("fused_people", []):
                 point = tuple(np.rint(project(matrix, [person["xy"]])[0]).astype(int))

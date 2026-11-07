@@ -8,34 +8,78 @@ class Calibrator(Protocol):
     def calibrate(self, dataset) -> dict: ...
 
 
+def source_homographies(dataset):
+    """Image -> shared room ground plane, resized to the actual camera images."""
+    import json
+
+    manifest = dataset.manifest
+    data = manifest.get("homographies", {})
+    text = None
+    if manifest.get("calibration"):
+        path = dataset.root / manifest["calibration"]
+        if path.suffix == ".json":
+            data = json.loads(path.read_text())
+            data = data.get("cameras", data)
+        else:
+            text = path.read_text()
+    matrices = {}
+    for camera in dataset.cameras:
+        name = camera["id"]
+        value = camera.get("H_image_to_map", data.get(name))
+        if isinstance(value, dict):
+            value = value.get("H_image_to_map")
+        if value is not None:
+            matrix = np.asarray(value, float)
+        elif all(k in camera for k in ["K", "R_world_to_camera", "t_world_to_camera"]):
+            r = np.asarray(camera["R_world_to_camera"])
+            t = np.asarray(camera["t_world_to_camera"])
+            matrix = np.linalg.inv(np.asarray(camera["K"]) @ np.column_stack([r[:, :2], t]))
+        elif text is not None:
+            number = int(camera.get("calibration_camera", name.removeprefix("cam")))
+            block = re.search(rf"# Camera {number}\b(.*?)(?=# Camera|\Z)", text, re.S)
+            if not block:
+                raise ValueError(f"No published calibration for {name}")
+            match = re.search(r"# Ground plane homography\s*\n([^#]+)", block.group(1))
+            matrix = np.asarray([float(x) for x in match.group(1).split()]).reshape(3, 3)
+        else:
+            raise ValueError(
+                f"{name}: provide H_image_to_map or K/R/t in the camera manifest; uncalibrated videos need an external reconstruction adapter"
+            )
+        if (
+            matrix.shape != (3, 3)
+            or not np.isfinite(matrix).all()
+            or np.linalg.slogdet(matrix)[0] == 0
+        ):
+            raise ValueError(f"Invalid homography for {name}")
+        width, height = camera.get(
+            "calibration_image_size",
+            manifest.get("calibration_image_size", [camera["width"], camera["height"]]),
+        )
+        matrices[name] = matrix @ np.diag([width / camera["width"], height / camera["height"], 1.0])
+    return matrices
+
+
 class EPFLCalibrator:
     def calibrate(self, dataset):
-        text = (dataset.root / dataset.manifest["calibration"]).read_text()
-        matrices = {}
+        matrices = source_homographies(dataset)
+        if dataset.manifest.get("map_y_axis", "down") == "up":
+            matrices = {name: np.diag([1.0, -1.0, 1.0]) @ h for name, h in matrices.items()}
         import json
 
         rectification = np.eye(3)
         if dataset.manifest.get("plane_rectification_file"):
-            rectification = np.array(
+            rectification = np.asarray(
                 json.loads(
                     (dataset.root / dataset.manifest["plane_rectification_file"]).read_text()
                 )["T_published_to_depth_metric"]
             )
         for camera in dataset.cameras:
-            number = int(camera["id"].removeprefix("cam"))
-            block = re.search(rf"# Camera {number}\b(.*?)(?=# Camera|\Z)", text, re.S).group(1)
-            match = re.search(r"# Ground plane homography\s*\n([^#]+)", block)
-            matrix = np.array([float(x) for x in match.group(1).split()]).reshape(3, 3)
-            source_width, source_height = dataset.manifest["calibration_image_size"]
-            matrix = (
-                rectification
-                @ matrix
-                @ np.diag([source_width / camera["width"], source_height / camera["height"], 1])
-            )
+            name = camera["id"]
+            matrix = rectification @ matrices[name]
             matrix /= matrix[2, 2]
             if not np.isfinite(matrix).all() or abs(np.linalg.det(matrix)) < 1e-10:
-                raise ValueError(f'Singular calibration for {camera["id"]}')
-            matrices[camera["id"]] = matrix
+                raise ValueError(f"Singular calibration for {name}")
+            matrices[name] = matrix
         # H alone does not identify Euclidean camera centers. Use vertical VP at infinity,
         # explicitly an approximation (zero roll, approximately vertical image axes).
         estimates = np.array([project(h, [[180, 1e8]])[0] for h in matrices.values()])
@@ -44,8 +88,8 @@ class EPFLCalibrator:
         canonical[:2, 2] = -centroid
         result = {
             "schema_version": 1,
-            "units": dataset.manifest["coordinate_units"],
-            "source": "EPFL published image-to-topview ground homographies; not reconstructed poses",
+            "units": dataset.manifest.get("coordinate_units", "meters"),
+            "source": "manifest/published image-to-ground calibration; not independently reconstructed poses",
             "convention": "H_map_to_image maps canonical floor to image; inverse maps image to floor",
             "gauge": {
                 "origin_epfl": centroid.tolist(),

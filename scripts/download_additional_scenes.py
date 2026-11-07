@@ -70,6 +70,8 @@ def main():
         "source": PAGE,
         "license": "CVLab EPFL copyright; research use",
         "room_id": "passageway",
+        "pose_scales": [1280],
+        "camera_prefix": "PASS",
         "calibration": calibration.name,
         "calibration_image_size": [720, 576],
         "coordinate_units": "EPFL passageway top-view units",

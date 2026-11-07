@@ -1,0 +1,7 @@
+{
+  "links": [
+    {"from": "room1:D01", "to": "room2:D01", "gap_m": 0.2},
+    {"from": "room2:D02", "to": "room3:D01", "gap_m": 0.0}
+  ],
+  "transition": {"dt_min": 0.0, "dt_max": 30.0, "appearance_threshold": 0.25, "min_transitions": 2}
+}

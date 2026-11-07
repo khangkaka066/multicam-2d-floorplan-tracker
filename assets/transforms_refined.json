@@ -166,13 +166,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "laboratory",
-      "source_camera": "cam0",
       "camera_center_scene": [
         3.0674372563451806,
         -2.8077280090138412,
         2.7097979985989746
-      ]
+      ],
+      "source_scene": "laboratory",
+      "source_camera": "cam0"
     },
     "LAB/cam1": {
       "room_id": "laboratory",
@@ -336,13 +336,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "laboratory",
-      "source_camera": "cam1",
       "camera_center_scene": [
         -3.067473428224044,
         -2.9306697951667844,
         2.5433228630717912
-      ]
+      ],
+      "source_scene": "laboratory",
+      "source_camera": "cam1"
     },
     "LAB/cam2": {
       "room_id": "laboratory",
@@ -506,13 +506,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "laboratory",
-      "source_camera": "cam2",
       "camera_center_scene": [
         -3.06704804064248,
         2.8699694606546053,
         1.722213606027515
-      ]
+      ],
+      "source_scene": "laboratory",
+      "source_camera": "cam2"
     },
     "LAB/cam3": {
       "room_id": "laboratory",
@@ -676,13 +676,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "laboratory",
-      "source_camera": "cam3",
       "camera_center_scene": [
         2.3919146161702716,
         3.105313571280381,
         2.084506407241966
-      ]
+      ],
+      "source_scene": "laboratory",
+      "source_camera": "cam3"
     },
     "PASS/cam0": {
       "room_id": "passageway",
@@ -846,13 +846,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "passageway",
-      "source_camera": "cam0",
       "camera_center_scene": [
         4.112905421414466,
         -7.183448015850003,
         1.681958620395811
-      ]
+      ],
+      "source_scene": "passageway",
+      "source_camera": "cam0"
     },
     "PASS/cam1": {
       "room_id": "passageway",
@@ -1016,13 +1016,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "passageway",
-      "source_camera": "cam1",
       "camera_center_scene": [
         -4.1090613864082695,
         -9.363270965128276,
         1.3268141835477578
-      ]
+      ],
+      "source_scene": "passageway",
+      "source_camera": "cam1"
     },
     "PASS/cam2": {
       "room_id": "passageway",
@@ -1186,13 +1186,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "passageway",
-      "source_camera": "cam2",
       "camera_center_scene": [
         -4.1131262715303585,
         3.385301407732665,
         1.8866102143586663
-      ]
+      ],
+      "source_scene": "passageway",
+      "source_camera": "cam2"
     },
     "PASS/cam3": {
       "room_id": "passageway",
@@ -1356,13 +1356,13 @@
         ]
       ],
       "projection_refinement_status": "joint 8-parameter projective correction; architectural pose retained",
-      "source_scene": "passageway",
-      "source_camera": "cam3",
       "camera_center_scene": [
         4.146398344033595,
         8.24520446621,
         1.8834887993373797
-      ]
+      ],
+      "source_scene": "passageway",
+      "source_camera": "cam3"
     }
   }
 }

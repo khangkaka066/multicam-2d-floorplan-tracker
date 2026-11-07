@@ -1,3 +1,5 @@
+For current generic room discovery, automatic rectification and topology, see [multi-room support](multi_room.md). The EPFL person-fusion measurements below remain the reference baseline.
+
 # Multi-camera architectural mapping and person fusion
 
 The pipeline reconstructs two real EPFL scenes and projects their people onto a clean map. It now displays **one tracked, fused marker per person**, not one marker per camera observation.
@@ -13,7 +15,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python scripts/download_person_models.py
 
-python main.py --mode project --output-dir outputs/laboratory --frames 100
+python main.py --mode project --room laboratory --output-dir outputs/laboratory --frames 100
 python main.py --mode project --data-dir data/passageway --output-dir outputs/passageway --frames 100
 python main.py --mode build-global
 
@@ -95,10 +97,9 @@ The existing structural pipeline remains available:
 python scripts/download_sample_data.py
 python scripts/download_additional_scenes.py
 python scripts/download_structural_models.py
-python scripts/rectify_passageway.py
 python scripts/download_passageway_verification.py
 
-python main.py --mode build-map --output-dir outputs/laboratory
+python main.py --mode build-map --room laboratory --output-dir outputs/laboratory
 python scripts/analyze_entries.py --output-dir outputs/laboratory
 python main.py --mode build-map --data-dir data/passageway --output-dir outputs/passageway
 ```
